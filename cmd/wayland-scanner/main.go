@@ -168,13 +168,15 @@ func printRequests(iface elInterface) {
 				// XXX
 				typ = "int32"
 			case "fd":
-				// XXX
-				typ = "int32"
+				typ = "uintptr"
 			default:
 				// XXX
 				panic(fmt.Sprintf("unsupported type %s", arg.Type))
 			}
 			fmt.Printf("%s %s, ", goIdentifier(arg.Name), typ)
+			if ctor.Name != "" && ctor.Interface == "" {
+				fmt.Printf("version uint32, ")
+			}
 		}
 		fmt.Printf(")")
 		if ctor.Interface != "" {
@@ -197,7 +199,8 @@ func printRequests(iface elInterface) {
 				if ctor.Interface != "" {
 					fmt.Print("_ret,")
 				} else {
-					fmt.Printf("%s,", ctor.Name)
+					// a new_id without an interface turns into "sun", i.e. interface name, interface version, id.
+					fmt.Printf("%s.Interface().Name, version, %s,", ctor.Name, ctor.Name)
 				}
 			default:
 				fmt.Printf("%s,", goIdentifier(arg.Name))
@@ -223,7 +226,7 @@ func printInterface(iface elInterface) {
 var %s = &wayland.Interface{
   Name: "%s",
   Version: %s,
-  Events: []interface{}{%s},
+  Events: []wayland.Event{%s},
 }
 `, ifaceName(iface.Name), iface.Name, iface.Version, strings.Join(events, ","))
 }
@@ -254,7 +257,6 @@ func printEvents(iface elInterface) {
 				// XXX
 				typ = "uintptr"
 			case "fd":
-				// XXX
 				typ = "uintptr"
 			}
 			printArgDocs(arg)

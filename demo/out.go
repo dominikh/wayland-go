@@ -18,7 +18,7 @@ const (
 var displayInterface = &wayland.Interface{
 	Name:    "wl_display",
 	Version: 1,
-	Events:  []interface{}{(*DisplayEventError)(nil), (*DisplayEventDeleteID)(nil)},
+	Events:  []wayland.Event{(*DisplayEventError)(nil), (*DisplayEventDeleteID)(nil)},
 }
 
 type DisplayEventError struct {
@@ -80,12 +80,12 @@ func (obj *Display) GetRegistry() *Registry {
 var registryInterface = &wayland.Interface{
 	Name:    "wl_registry",
 	Version: 1,
-	Events:  []interface{}{(*RegistryEventGlobal)(nil), (*RegistryEventGlobalRemove)(nil)},
+	Events:  []wayland.Event{(*RegistryEventGlobal)(nil), (*RegistryEventGlobalRemove)(nil)},
 }
 
 type RegistryEventGlobal struct {
 	// numeric name of the global object
-	Name uint32 `wl:"hi"`
+	Name uint32
 	// interface implemented by the object
 	Interface string
 	// interface version
@@ -123,15 +123,15 @@ func (*Registry) Interface() *wayland.Interface { return registryInterface }
 
 // Binds a new, client-created object to the server using the
 // specified name as the identifier.
-func (obj *Registry) Bind(name uint32, id wayland.Object) {
+func (obj *Registry) Bind(name uint32, id wayland.Object, version uint32) {
 	const wl_registry_bind = 0
-	obj.Conn().SendRequest(obj, wl_registry_bind, name, id)
+	obj.Conn().SendRequest(obj, wl_registry_bind, name, id.Interface().Name, version, id)
 }
 
 var callbackInterface = &wayland.Interface{
 	Name:    "wl_callback",
 	Version: 1,
-	Events:  []interface{}{(*CallbackEventDone)(nil)},
+	Events:  []wayland.Event{(*CallbackEventDone)(nil)},
 }
 
 type CallbackEventDone struct {
@@ -148,7 +148,7 @@ func (*Callback) Interface() *wayland.Interface { return callbackInterface }
 var compositorInterface = &wayland.Interface{
 	Name:    "wl_compositor",
 	Version: 4,
-	Events:  []interface{}{},
+	Events:  []wayland.Event{},
 }
 
 // A compositor.  This object is a singleton global.  The
@@ -179,7 +179,7 @@ func (obj *Compositor) CreateRegion() *Region {
 var shmPoolInterface = &wayland.Interface{
 	Name:    "wl_shm_pool",
 	Version: 1,
-	Events:  []interface{}{},
+	Events:  []wayland.Event{},
 }
 
 // The wl_shm_pool object encapsulates a piece of memory shared
@@ -446,7 +446,7 @@ const (
 var shmInterface = &wayland.Interface{
 	Name:    "wl_shm",
 	Version: 1,
-	Events:  []interface{}{(*ShmEventFormat)(nil)},
+	Events:  []wayland.Event{(*ShmEventFormat)(nil)},
 }
 
 type ShmEventFormat struct {
@@ -472,7 +472,7 @@ func (*Shm) Interface() *wayland.Interface { return shmInterface }
 // The pool can be used to create shared memory based buffer
 // objects.  The server will mmap size bytes of the passed file
 // descriptor, to use as backing memory for the pool.
-func (obj *Shm) CreatePool(fd int32, size int32) *ShmPool {
+func (obj *Shm) CreatePool(fd uintptr, size int32) *ShmPool {
 	const wl_shm_create_pool = 0
 	_ret := &ShmPool{}
 	obj.Conn().NewProxy(0, _ret)
@@ -483,7 +483,7 @@ func (obj *Shm) CreatePool(fd int32, size int32) *ShmPool {
 var bufferInterface = &wayland.Interface{
 	Name:    "wl_buffer",
 	Version: 1,
-	Events:  []interface{}{(*BufferEventRelease)(nil)},
+	Events:  []wayland.Event{(*BufferEventRelease)(nil)},
 }
 
 type BufferEventRelease struct {
@@ -521,7 +521,7 @@ const (
 var dataOfferInterface = &wayland.Interface{
 	Name:    "wl_data_offer",
 	Version: 3,
-	Events:  []interface{}{(*DataOfferEventOffer)(nil), (*DataOfferEventSourceActions)(nil), (*DataOfferEventAction)(nil)},
+	Events:  []wayland.Event{(*DataOfferEventOffer)(nil), (*DataOfferEventSourceActions)(nil), (*DataOfferEventAction)(nil)},
 }
 
 type DataOfferEventOffer struct {
@@ -583,7 +583,7 @@ func (obj *DataOffer) Accept(serial uint32, mimeType string) {
 // both before and after wl_data_device.drop. Drag-and-drop destination
 // clients may preemptively fetch data or examine it more closely to
 // determine acceptance.
-func (obj *DataOffer) Receive(mimeType string, fd int32) {
+func (obj *DataOffer) Receive(mimeType string, fd uintptr) {
 	const wl_data_offer_receive = 1
 	obj.Conn().SendRequest(obj, wl_data_offer_receive, mimeType, fd)
 }
@@ -659,7 +659,7 @@ const (
 var dataSourceInterface = &wayland.Interface{
 	Name:    "wl_data_source",
 	Version: 3,
-	Events:  []interface{}{(*DataSourceEventTarget)(nil), (*DataSourceEventSend)(nil), (*DataSourceEventCancelled)(nil), (*DataSourceEventDndDropPerformed)(nil), (*DataSourceEventDndFinished)(nil), (*DataSourceEventAction)(nil)},
+	Events:  []wayland.Event{(*DataSourceEventTarget)(nil), (*DataSourceEventSend)(nil), (*DataSourceEventCancelled)(nil), (*DataSourceEventDndDropPerformed)(nil), (*DataSourceEventDndFinished)(nil), (*DataSourceEventAction)(nil)},
 }
 
 type DataSourceEventTarget struct {
@@ -736,7 +736,7 @@ const (
 var dataDeviceInterface = &wayland.Interface{
 	Name:    "wl_data_device",
 	Version: 3,
-	Events:  []interface{}{(*DataDeviceEventDataOffer)(nil), (*DataDeviceEventEnter)(nil), (*DataDeviceEventLeave)(nil), (*DataDeviceEventMotion)(nil), (*DataDeviceEventDrop)(nil), (*DataDeviceEventSelection)(nil)},
+	Events:  []wayland.Event{(*DataDeviceEventDataOffer)(nil), (*DataDeviceEventEnter)(nil), (*DataDeviceEventLeave)(nil), (*DataDeviceEventMotion)(nil), (*DataDeviceEventDrop)(nil), (*DataDeviceEventSelection)(nil)},
 }
 
 type DataDeviceEventDataOffer struct {
@@ -870,7 +870,7 @@ const (
 var dataDeviceManagerInterface = &wayland.Interface{
 	Name:    "wl_data_device_manager",
 	Version: 3,
-	Events:  []interface{}{},
+	Events:  []wayland.Event{},
 }
 
 // The wl_data_device_manager is a singleton global object that
@@ -913,7 +913,7 @@ const (
 var shellInterface = &wayland.Interface{
 	Name:    "wl_shell",
 	Version: 1,
-	Events:  []interface{}{},
+	Events:  []wayland.Event{},
 }
 
 // This interface is implemented by servers that provide
@@ -990,7 +990,7 @@ const (
 var shellSurfaceInterface = &wayland.Interface{
 	Name:    "wl_shell_surface",
 	Version: 1,
-	Events:  []interface{}{(*ShellSurfaceEventPing)(nil), (*ShellSurfaceEventConfigure)(nil), (*ShellSurfaceEventPopupDone)(nil)},
+	Events:  []wayland.Event{(*ShellSurfaceEventPing)(nil), (*ShellSurfaceEventConfigure)(nil), (*ShellSurfaceEventPopupDone)(nil)},
 }
 
 type ShellSurfaceEventPing struct {
@@ -1191,7 +1191,7 @@ const (
 var surfaceInterface = &wayland.Interface{
 	Name:    "wl_surface",
 	Version: 4,
-	Events:  []interface{}{(*SurfaceEventEnter)(nil), (*SurfaceEventLeave)(nil)},
+	Events:  []wayland.Event{(*SurfaceEventEnter)(nil), (*SurfaceEventLeave)(nil)},
 }
 
 type SurfaceEventEnter struct {
@@ -1562,7 +1562,7 @@ const (
 var seatInterface = &wayland.Interface{
 	Name:    "wl_seat",
 	Version: 7,
-	Events:  []interface{}{(*SeatEventCapabilities)(nil), (*SeatEventName)(nil)},
+	Events:  []wayland.Event{(*SeatEventCapabilities)(nil), (*SeatEventName)(nil)},
 }
 
 type SeatEventCapabilities struct {
@@ -1687,7 +1687,7 @@ const (
 var pointerInterface = &wayland.Interface{
 	Name:    "wl_pointer",
 	Version: 7,
-	Events:  []interface{}{(*PointerEventEnter)(nil), (*PointerEventLeave)(nil), (*PointerEventMotion)(nil), (*PointerEventButton)(nil), (*PointerEventAxis)(nil), (*PointerEventFrame)(nil), (*PointerEventAxisSource)(nil), (*PointerEventAxisStop)(nil), (*PointerEventAxisDiscrete)(nil)},
+	Events:  []wayland.Event{(*PointerEventEnter)(nil), (*PointerEventLeave)(nil), (*PointerEventMotion)(nil), (*PointerEventButton)(nil), (*PointerEventAxis)(nil), (*PointerEventFrame)(nil), (*PointerEventAxisSource)(nil), (*PointerEventAxisStop)(nil), (*PointerEventAxisDiscrete)(nil)},
 }
 
 type PointerEventEnter struct {
@@ -1837,7 +1837,7 @@ const (
 var keyboardInterface = &wayland.Interface{
 	Name:    "wl_keyboard",
 	Version: 7,
-	Events:  []interface{}{(*KeyboardEventKeymap)(nil), (*KeyboardEventEnter)(nil), (*KeyboardEventLeave)(nil), (*KeyboardEventKey)(nil), (*KeyboardEventModifiers)(nil), (*KeyboardEventRepeatInfo)(nil)},
+	Events:  []wayland.Event{(*KeyboardEventKeymap)(nil), (*KeyboardEventEnter)(nil), (*KeyboardEventLeave)(nil), (*KeyboardEventKey)(nil), (*KeyboardEventModifiers)(nil), (*KeyboardEventRepeatInfo)(nil)},
 }
 
 type KeyboardEventKeymap struct {
@@ -1911,7 +1911,7 @@ func (obj *Keyboard) Release() {
 var touchInterface = &wayland.Interface{
 	Name:    "wl_touch",
 	Version: 7,
-	Events:  []interface{}{(*TouchEventDown)(nil), (*TouchEventUp)(nil), (*TouchEventMotion)(nil), (*TouchEventFrame)(nil), (*TouchEventCancel)(nil), (*TouchEventShape)(nil), (*TouchEventOrientation)(nil)},
+	Events:  []wayland.Event{(*TouchEventDown)(nil), (*TouchEventUp)(nil), (*TouchEventMotion)(nil), (*TouchEventFrame)(nil), (*TouchEventCancel)(nil), (*TouchEventShape)(nil), (*TouchEventOrientation)(nil)},
 }
 
 type TouchEventDown struct {
@@ -2048,7 +2048,7 @@ const (
 var outputInterface = &wayland.Interface{
 	Name:    "wl_output",
 	Version: 3,
-	Events:  []interface{}{(*OutputEventGeometry)(nil), (*OutputEventMode)(nil), (*OutputEventDone)(nil), (*OutputEventScale)(nil)},
+	Events:  []wayland.Event{(*OutputEventGeometry)(nil), (*OutputEventMode)(nil), (*OutputEventDone)(nil), (*OutputEventScale)(nil)},
 }
 
 type OutputEventGeometry struct {
@@ -2109,7 +2109,7 @@ func (obj *Output) Release() {
 var regionInterface = &wayland.Interface{
 	Name:    "wl_region",
 	Version: 1,
-	Events:  []interface{}{},
+	Events:  []wayland.Event{},
 }
 
 // A region object describes an area.
@@ -2146,7 +2146,7 @@ const (
 var subcompositorInterface = &wayland.Interface{
 	Name:    "wl_subcompositor",
 	Version: 1,
-	Events:  []interface{}{},
+	Events:  []wayland.Event{},
 }
 
 // The global interface exposing sub-surface compositing capabilities.
@@ -2211,7 +2211,7 @@ const (
 var subsurfaceInterface = &wayland.Interface{
 	Name:    "wl_subsurface",
 	Version: 1,
-	Events:  []interface{}{},
+	Events:  []wayland.Event{},
 }
 
 // An additional interface to a wl_surface object, which has been

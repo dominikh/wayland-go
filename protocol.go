@@ -3,9 +3,11 @@ package wayland
 import (
 	"encoding/binary"
 	"fmt"
-	"io"
 	"log"
+	"net"
 	"reflect"
+	"sync"
+	"syscall"
 	"unsafe"
 )
 
@@ -27,6 +29,7 @@ type Object interface {
 	Conn() *Conn
 	Interface() *Interface
 	GetProxy() *Proxy
+	NextEvent() Event
 }
 
 var byteOrder binary.ByteOrder
@@ -42,28 +45,59 @@ func init() {
 
 type Interface struct {
 	Name    string
-	Version int
-	Events  []interface{}
+	Version uint32
+	Events  []Event
 }
 
 type Proxy struct {
 	id   ObjectID
 	conn *Conn
+
+	mu     sync.Mutex
+	events []Event
+	signal chan struct{}
 }
+
+type Event interface{}
 
 func (p *Proxy) GetProxy() *Proxy { return p }
 func (p *Proxy) ID() ObjectID     { return p.id }
 func (p *Proxy) Conn() *Conn      { return p.conn }
 
+func (p *Proxy) pushEvent(ev Event) {
+	p.mu.Lock()
+	p.events = append(p.events, ev)
+	select {
+	case p.signal <- struct{}{}:
+	default:
+	}
+	p.mu.Unlock()
+}
+
+func (p *Proxy) NextEvent() Event {
+	for {
+		p.mu.Lock()
+		if len(p.events) > 0 {
+			ev := p.events[0]
+			copy(p.events, p.events[1:])
+			p.events = p.events[:len(p.events)-1]
+			p.mu.Unlock()
+			return ev
+		}
+		p.mu.Unlock()
+		<-p.signal
+	}
+}
+
 type Conn struct {
-	rw      io.ReadWriter
+	rw      *net.UnixConn
 	objects map[ObjectID]Object
 	debug   bool
 
 	maxID ObjectID
 }
 
-func NewConn(rw io.ReadWriter) *Conn {
+func NewConn(rw *net.UnixConn) *Conn {
 	c := &Conn{
 		rw:      rw,
 		objects: map[ObjectID]Object{},
@@ -93,13 +127,17 @@ func (c *Conn) NewProxy(id ObjectID, obj Object) {
 	}
 	p := obj.GetProxy()
 	*p = Proxy{
-		id:   id,
-		conn: c,
+		id:     id,
+		conn:   c,
+		signal: make(chan struct{}),
 	}
 	c.objects[id] = obj
 }
 
 func (c *Conn) SendRequest(source Object, request int, args ...interface{}) {
+	// XXX we need to be aware of destructors and stop tracking
+	// objects that were destroyed
+
 	// OPT(dh): cache buf in Conn
 	buf := make([]byte, 8, 8+len(args)*4)
 	var scratch [4]byte
@@ -115,29 +153,48 @@ func (c *Conn) SendRequest(source Object, request int, args ...interface{}) {
 			byteOrder.PutUint32(scratch[:], uint32(arg))
 			buf = append(buf, scratch[:]...)
 		case string:
-			panic("string not implemented")
+			byteOrder.PutUint32(scratch[:], uint32(len(arg)+1))
+			buf = append(buf, scratch[:]...)
+			buf = append(buf, arg...)
+			buf = append(buf, 0)
+			m := len(arg) + 1
+			n := (m + 3) & ^3
+			for i := n - m; i > 0; i-- {
+				buf = append(buf, 0)
+			}
 			// XXX array
 			// XXX fd
 		case Object:
 			id := arg.ID()
 			byteOrder.PutUint32(scratch[:], uint32(id))
 			buf = append(buf, scratch[:]...)
+		default:
+			panic(fmt.Sprintf("internal error: unhandled type %T", arg))
 		}
 	}
 	byteOrder.PutUint32(buf[0:4], uint32(source.ID()))
 	byteOrder.PutUint16(buf[4:6], uint16(request))
 	byteOrder.PutUint16(buf[6:8], uint16(len(buf)))
-	log.Println(len(buf), request)
 	c.rw.Write(buf)
 }
 
 func (c *Conn) read() error {
+	var (
+		tInt32   = reflect.TypeOf(int32(0))
+		tUint32  = reflect.TypeOf(uint32(0))
+		tFixed   = reflect.TypeOf(Fixed(0))
+		tString  = reflect.TypeOf("")
+		tObject  = reflect.TypeOf((*Object)(nil)).Elem()
+		tUintptr = reflect.TypeOf(uintptr(0))
+	)
+
 	// XXX it's a stream protocol, not a message protocol, so don't expect to read full messages
 
 	b := make([]byte, 1<<16)
+	oob := make([]byte, 24)
 	for {
-		n, err := c.rw.Read(b)
-		log.Printf("read %d bytes, err = %v", n, err)
+		n, oobn, flags, _, err := c.rw.ReadMsgUnix(b, oob)
+		log.Println("oobn, flags", oobn, flags)
 		if err != nil {
 			return err
 		}
@@ -153,10 +210,6 @@ func (c *Conn) read() error {
 			size := (h & 0xFFFF0000) >> 16
 			opcode := h & 0x0000FFFF
 
-			if c.debug {
-				log.Printf("event: sender = %d, opcode = %d, size = %d", sender, opcode, size)
-			}
-
 			if size < 8 {
 				// XXX invalid size
 			}
@@ -170,21 +223,26 @@ func (c *Conn) read() error {
 			elem := ev.Elem()
 			for i := 0; i < elem.NumField(); i++ {
 				f := elem.Field(i)
-				num := byteOrder.Uint32(d[off:])
-				off += 4
-				switch f.Interface().(type) {
-				case int32:
+				fT := evT.Elem().Field(i)
+
+				var num uint32
+				if fT.Type != tUintptr {
+					num = byteOrder.Uint32(d[off:])
+					off += 4
+				}
+				switch fT.Type {
+				case tInt32:
 					f.SetInt(int64(num))
-				case uint32:
+				case tUint32:
 					f.SetUint(uint64(num))
-				case Fixed:
+				case tFixed:
 					f.SetUint(uint64(num))
-				case string:
+				case tString:
 					s := string(d[off : off+int(num)-1])
 					f.SetString(s)
 					off += int(num)
 					off = (off + 3) & ^3
-				case Object:
+				case tObject:
 					if evT.Elem().Field(i).Tag.Get("wl") == "new_id" {
 						v := reflect.New(f.Type().Elem()).Interface().(Object)
 						c.NewProxy(ObjectID(num), v)
@@ -192,12 +250,22 @@ func (c *Conn) read() error {
 					} else {
 						f.Set(reflect.ValueOf(c.objects[ObjectID(num)]))
 					}
+				case tUintptr:
+					scm, err := syscall.ParseSocketControlMessage(oob[:oobn])
+					if err != nil {
+						panic(err)
+					}
+					fds, err := syscall.ParseUnixRights(&scm[0])
+					if err != nil {
+						panic(err)
+					}
+					f.SetUint(uint64(fds[0]))
 				default:
 					// XXX support arrays and file descriptors
-					panic("unreachable")
+					panic(fmt.Sprintf("internal error: unexpected type %v", fT.Type))
 				}
 			}
-			fmt.Printf("%T\n",ev.Interface())
+			obj.GetProxy().pushEvent(ev.Interface().(Event))
 
 			d = d[size:]
 		}
