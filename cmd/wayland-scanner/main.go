@@ -84,12 +84,20 @@ type elDescription struct {
 	Text string `xml:",cdata"`
 }
 
-func interfaceName(name string) string {
+func typeName(name string) string {
 	name = strings.TrimPrefix(name, "wl_")
 	if len(name) == 0 {
 		// XXX
 	}
 	return exportedGoIdentifier(name)
+}
+
+func ifaceName(name string) string {
+	name = strings.TrimPrefix(name, "wl_")
+	if len(name) == 0 {
+		// XXX
+	}
+	return goIdentifier(name) + "Interface"
 }
 
 // XXX check for reserved names
@@ -105,13 +113,13 @@ func goIdentifier(name string) string {
 }
 
 func printEnums(iface elInterface) {
-	ifaceName := interfaceName(iface.Name)
+	typeName := typeName(iface.Name)
 
 	for _, enum := range iface.Enums {
 		// TODO emit enum.Description
 		fmt.Println("const (")
 
-		ename := ifaceName + exportedGoIdentifier(enum.Name)
+		ename := typeName + exportedGoIdentifier(enum.Name)
 		for _, entry := range enum.Entries {
 			eename := ename + exportedGoIdentifier(entry.Name)
 			// TODO emit entry.Summary or entry.Description
@@ -123,12 +131,10 @@ func printEnums(iface elInterface) {
 }
 
 func printRequests(iface elInterface) {
-	ifaceName := interfaceName(iface.Name)
-
 	for i, req := range iface.Requests {
 		reqName := exportedGoIdentifier(req.Name)
 		// TODO emit req.Description
-		fmt.Printf("func (obj *%s) %s(", ifaceName, reqName)
+		fmt.Printf("func (obj *%s) %s(", typeName(iface.Name), reqName)
 		var ctor elArg
 		for _, arg := range req.Args {
 			var typ string
@@ -145,7 +151,7 @@ func printRequests(iface elInterface) {
 				// XXX interface
 				typ = "wayland.Object"
 				if arg.Interface != "" {
-					typ = "*" + interfaceName(arg.Interface)
+					typ = "*" + typeName(arg.Interface)
 				}
 			case "new_id":
 				ctor = arg
@@ -168,7 +174,7 @@ func printRequests(iface elInterface) {
 		}
 		fmt.Printf(")")
 		if ctor.Interface != "" {
-			typ := "*" + interfaceName(ctor.Interface)
+			typ := "*" + typeName(ctor.Interface)
 			fmt.Print(typ)
 		}
 		fmt.Println("{")
@@ -176,7 +182,7 @@ func printRequests(iface elInterface) {
 
 		if ctor.Name != "" {
 			if ctor.Interface != "" {
-				fmt.Printf("_ret := &%s{}; obj.Conn().NewProxy(0, _ret, %sInterface);\n", interfaceName(ctor.Interface), interfaceName(ctor.Interface))
+				fmt.Printf("_ret := &%s{}; obj.Conn().NewProxy(0, _ret);\n", typeName(ctor.Interface))
 			}
 		}
 
@@ -243,7 +249,7 @@ wayland.MessageRequest{
 				// when we receive an event with a new_id, we need to
 				// create the appropriate proxy with the correct
 				// interface.
-				typ = interfaceName(arg.Interface) + "Interface"
+				typ = ifaceName(arg.Interface)
 			case "array":
 				typ = `"XXX"`
 			case "fd":
@@ -263,12 +269,12 @@ wayland.MessageEvent{
 	}
 
 	fmt.Printf(`
-var %sInterface = &wayland.Interface{
+var %s = &wayland.Interface{
   Name: "%s",
   Version: %s,
   Events: []wayland.MessageEvent{%s},
 }
-`, interfaceName(iface.Name), iface.Name, iface.Version,  strings.Join(events, ","))
+`, ifaceName(iface.Name), iface.Name, iface.Version,  strings.Join(events, ","))
 }
 
 func main() {
@@ -286,13 +292,12 @@ func main() {
 
 	fmt.Println(`package pkg; import "honnef.co/go/wayland";`)
 	for _, iface := range spec.Interfaces {
-		ifaceName := interfaceName(iface.Name)
-
 		printEnums(iface)
 		printInterface(iface)
 
 		// TODO emit iface.Description
-		fmt.Printf("type %s struct { wayland.Proxy }\n", ifaceName)
+		fmt.Printf("type %s struct { wayland.Proxy }\n", typeName(iface.Name))
+		fmt.Printf("func (*%s) Interface() *wayland.Interface { return %s }\n", typeName(iface.Name), ifaceName(iface.Name))
 
 		printRequests(iface)
 	}

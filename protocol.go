@@ -59,13 +59,11 @@ type MessageEvent struct {
 type Proxy struct {
 	id    ObjectID
 	conn  *Conn
-	iface *Interface
 }
 
 func (p *Proxy) GetProxy() *Proxy      { return p }
 func (p *Proxy) ID() ObjectID          { return p.id }
 func (p *Proxy) Conn() *Conn           { return p.conn }
-func (p *Proxy) Interface() *Interface { return p.iface }
 
 type Conn struct {
 	rw      io.ReadWriter
@@ -107,7 +105,7 @@ func (c *Conn) Test() {
 	c.rw.Write(b)
 }
 
-func (c *Conn) NewProxy(id ObjectID, obj Object, iface *Interface)  {
+func (c *Conn) NewProxy(id ObjectID, obj Object)  {
 	if id == 0 {
 		c.maxID++
 		id = c.maxID
@@ -116,7 +114,6 @@ func (c *Conn) NewProxy(id ObjectID, obj Object, iface *Interface)  {
 	*p = Proxy{
 		id:    id,
 		conn:  c,
-		iface: iface,
 	}
 	c.objects[id] = obj
 }

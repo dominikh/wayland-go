@@ -17,7 +17,7 @@ func main() {
 	}
 	c := wayland.NewConn(uc)
 	dsp := &demo.Display{}
-	c.NewProxy(1, dsp, demo.DisplayInterface)
+	c.NewProxy(1, dsp)
 	dsp.GetRegistry()
 	select {}
 }

@@ -9,7 +9,7 @@ const (
 	DisplayErrorImplementation = 3
 )
 
-var DisplayInterface = &wayland.Interface{
+var displayInterface = &wayland.Interface{
 	Name:    "wl_display",
 	Version: 1,
 	Events: []wayland.MessageEvent{
@@ -25,22 +25,23 @@ var DisplayInterface = &wayland.Interface{
 
 type Display struct{ wayland.Proxy }
 
+func (*Display) Interface() *wayland.Interface { return displayInterface }
 func (obj *Display) Sync() *Callback {
 	const wl_display_sync = 0
 	_ret := &Callback{}
-	obj.Conn().NewProxy(0, _ret, CallbackInterface)
+	obj.Conn().NewProxy(0, _ret)
 	obj.Conn().SendRequest(obj, wl_display_sync, _ret)
 	return _ret
 }
 func (obj *Display) GetRegistry() *Registry {
 	const wl_display_get_registry = 1
 	_ret := &Registry{}
-	obj.Conn().NewProxy(0, _ret, RegistryInterface)
+	obj.Conn().NewProxy(0, _ret)
 	obj.Conn().SendRequest(obj, wl_display_get_registry, _ret)
 	return _ret
 }
 
-var RegistryInterface = &wayland.Interface{
+var registryInterface = &wayland.Interface{
 	Name:    "wl_registry",
 	Version: 1,
 	Events: []wayland.MessageEvent{
@@ -56,12 +57,13 @@ var RegistryInterface = &wayland.Interface{
 
 type Registry struct{ wayland.Proxy }
 
+func (*Registry) Interface() *wayland.Interface { return registryInterface }
 func (obj *Registry) Bind(name uint32, id wayland.Object) {
 	const wl_registry_bind = 0
 	obj.Conn().SendRequest(obj, wl_registry_bind, name, id)
 }
 
-var CallbackInterface = &wayland.Interface{
+var callbackInterface = &wayland.Interface{
 	Name:    "wl_callback",
 	Version: 1,
 	Events: []wayland.MessageEvent{
@@ -73,7 +75,9 @@ var CallbackInterface = &wayland.Interface{
 
 type Callback struct{ wayland.Proxy }
 
-var CompositorInterface = &wayland.Interface{
+func (*Callback) Interface() *wayland.Interface { return callbackInterface }
+
+var compositorInterface = &wayland.Interface{
 	Name:    "wl_compositor",
 	Version: 4,
 	Events:  []wayland.MessageEvent{},
@@ -81,22 +85,23 @@ var CompositorInterface = &wayland.Interface{
 
 type Compositor struct{ wayland.Proxy }
 
+func (*Compositor) Interface() *wayland.Interface { return compositorInterface }
 func (obj *Compositor) CreateSurface() *Surface {
 	const wl_compositor_create_surface = 0
 	_ret := &Surface{}
-	obj.Conn().NewProxy(0, _ret, SurfaceInterface)
+	obj.Conn().NewProxy(0, _ret)
 	obj.Conn().SendRequest(obj, wl_compositor_create_surface, _ret)
 	return _ret
 }
 func (obj *Compositor) CreateRegion() *Region {
 	const wl_compositor_create_region = 1
 	_ret := &Region{}
-	obj.Conn().NewProxy(0, _ret, RegionInterface)
+	obj.Conn().NewProxy(0, _ret)
 	obj.Conn().SendRequest(obj, wl_compositor_create_region, _ret)
 	return _ret
 }
 
-var ShmPoolInterface = &wayland.Interface{
+var shmPoolInterface = &wayland.Interface{
 	Name:    "wl_shm_pool",
 	Version: 1,
 	Events:  []wayland.MessageEvent{},
@@ -104,10 +109,11 @@ var ShmPoolInterface = &wayland.Interface{
 
 type ShmPool struct{ wayland.Proxy }
 
+func (*ShmPool) Interface() *wayland.Interface { return shmPoolInterface }
 func (obj *ShmPool) CreateBuffer(offset int32, width int32, height int32, stride int32, format uint32) *Buffer {
 	const wl_shm_pool_create_buffer = 0
 	_ret := &Buffer{}
-	obj.Conn().NewProxy(0, _ret, BufferInterface)
+	obj.Conn().NewProxy(0, _ret)
 	obj.Conn().SendRequest(obj, wl_shm_pool_create_buffer, _ret, offset, width, height, stride, format)
 	return _ret
 }
@@ -228,7 +234,7 @@ const (
 	ShmFormatP016           = 0x36313050
 )
 
-var ShmInterface = &wayland.Interface{
+var shmInterface = &wayland.Interface{
 	Name:    "wl_shm",
 	Version: 1,
 	Events: []wayland.MessageEvent{
@@ -240,15 +246,16 @@ var ShmInterface = &wayland.Interface{
 
 type Shm struct{ wayland.Proxy }
 
+func (*Shm) Interface() *wayland.Interface { return shmInterface }
 func (obj *Shm) CreatePool(fd int32, size int32) *ShmPool {
 	const wl_shm_create_pool = 0
 	_ret := &ShmPool{}
-	obj.Conn().NewProxy(0, _ret, ShmPoolInterface)
+	obj.Conn().NewProxy(0, _ret)
 	obj.Conn().SendRequest(obj, wl_shm_create_pool, _ret, fd, size)
 	return _ret
 }
 
-var BufferInterface = &wayland.Interface{
+var bufferInterface = &wayland.Interface{
 	Name:    "wl_buffer",
 	Version: 1,
 	Events: []wayland.MessageEvent{
@@ -260,6 +267,7 @@ var BufferInterface = &wayland.Interface{
 
 type Buffer struct{ wayland.Proxy }
 
+func (*Buffer) Interface() *wayland.Interface { return bufferInterface }
 func (obj *Buffer) Destroy() {
 	const wl_buffer_destroy = 0
 	obj.Conn().SendRequest(obj, wl_buffer_destroy)
@@ -272,7 +280,7 @@ const (
 	DataOfferErrorInvalidOffer      = 3
 )
 
-var DataOfferInterface = &wayland.Interface{
+var dataOfferInterface = &wayland.Interface{
 	Name:    "wl_data_offer",
 	Version: 3,
 	Events: []wayland.MessageEvent{
@@ -292,6 +300,7 @@ var DataOfferInterface = &wayland.Interface{
 
 type DataOffer struct{ wayland.Proxy }
 
+func (*DataOffer) Interface() *wayland.Interface { return dataOfferInterface }
 func (obj *DataOffer) Accept(serial uint32, mimeType string) {
 	const wl_data_offer_accept = 0
 	obj.Conn().SendRequest(obj, wl_data_offer_accept, serial, mimeType)
@@ -318,7 +327,7 @@ const (
 	DataSourceErrorInvalidSource     = 1
 )
 
-var DataSourceInterface = &wayland.Interface{
+var dataSourceInterface = &wayland.Interface{
 	Name:    "wl_data_source",
 	Version: 3,
 	Events: []wayland.MessageEvent{
@@ -350,6 +359,7 @@ var DataSourceInterface = &wayland.Interface{
 
 type DataSource struct{ wayland.Proxy }
 
+func (*DataSource) Interface() *wayland.Interface { return dataSourceInterface }
 func (obj *DataSource) Offer(mimeType string) {
 	const wl_data_source_offer = 0
 	obj.Conn().SendRequest(obj, wl_data_source_offer, mimeType)
@@ -367,13 +377,13 @@ const (
 	DataDeviceErrorRole = 0
 )
 
-var DataDeviceInterface = &wayland.Interface{
+var dataDeviceInterface = &wayland.Interface{
 	Name:    "wl_data_device",
 	Version: 3,
 	Events: []wayland.MessageEvent{
 		wayland.MessageEvent{
 			Name:  "data_offer",
-			Types: []interface{}{DataOfferInterface},
+			Types: []interface{}{dataOfferInterface},
 		},
 		wayland.MessageEvent{
 			Name:  "enter",
@@ -399,6 +409,7 @@ var DataDeviceInterface = &wayland.Interface{
 
 type DataDevice struct{ wayland.Proxy }
 
+func (*DataDevice) Interface() *wayland.Interface { return dataDeviceInterface }
 func (obj *DataDevice) StartDrag(source *DataSource, origin *Surface, icon *Surface, serial uint32) {
 	const wl_data_device_start_drag = 0
 	obj.Conn().SendRequest(obj, wl_data_device_start_drag, source, origin, icon, serial)
@@ -419,7 +430,7 @@ const (
 	DataDeviceManagerDndActionAsk  = 4
 )
 
-var DataDeviceManagerInterface = &wayland.Interface{
+var dataDeviceManagerInterface = &wayland.Interface{
 	Name:    "wl_data_device_manager",
 	Version: 3,
 	Events:  []wayland.MessageEvent{},
@@ -427,17 +438,18 @@ var DataDeviceManagerInterface = &wayland.Interface{
 
 type DataDeviceManager struct{ wayland.Proxy }
 
+func (*DataDeviceManager) Interface() *wayland.Interface { return dataDeviceManagerInterface }
 func (obj *DataDeviceManager) CreateDataSource() *DataSource {
 	const wl_data_device_manager_create_data_source = 0
 	_ret := &DataSource{}
-	obj.Conn().NewProxy(0, _ret, DataSourceInterface)
+	obj.Conn().NewProxy(0, _ret)
 	obj.Conn().SendRequest(obj, wl_data_device_manager_create_data_source, _ret)
 	return _ret
 }
 func (obj *DataDeviceManager) GetDataDevice(seat *Seat) *DataDevice {
 	const wl_data_device_manager_get_data_device = 1
 	_ret := &DataDevice{}
-	obj.Conn().NewProxy(0, _ret, DataDeviceInterface)
+	obj.Conn().NewProxy(0, _ret)
 	obj.Conn().SendRequest(obj, wl_data_device_manager_get_data_device, _ret, seat)
 	return _ret
 }
@@ -446,7 +458,7 @@ const (
 	ShellErrorRole = 0
 )
 
-var ShellInterface = &wayland.Interface{
+var shellInterface = &wayland.Interface{
 	Name:    "wl_shell",
 	Version: 1,
 	Events:  []wayland.MessageEvent{},
@@ -454,10 +466,11 @@ var ShellInterface = &wayland.Interface{
 
 type Shell struct{ wayland.Proxy }
 
+func (*Shell) Interface() *wayland.Interface { return shellInterface }
 func (obj *Shell) GetShellSurface(surface *Surface) *ShellSurface {
 	const wl_shell_get_shell_surface = 0
 	_ret := &ShellSurface{}
-	obj.Conn().NewProxy(0, _ret, ShellSurfaceInterface)
+	obj.Conn().NewProxy(0, _ret)
 	obj.Conn().SendRequest(obj, wl_shell_get_shell_surface, _ret, surface)
 	return _ret
 }
@@ -483,7 +496,7 @@ const (
 	ShellSurfaceFullscreenMethodFill    = 3
 )
 
-var ShellSurfaceInterface = &wayland.Interface{
+var shellSurfaceInterface = &wayland.Interface{
 	Name:    "wl_shell_surface",
 	Version: 1,
 	Events: []wayland.MessageEvent{
@@ -503,6 +516,7 @@ var ShellSurfaceInterface = &wayland.Interface{
 
 type ShellSurface struct{ wayland.Proxy }
 
+func (*ShellSurface) Interface() *wayland.Interface { return shellSurfaceInterface }
 func (obj *ShellSurface) Pong(serial uint32) {
 	const wl_shell_surface_pong = 0
 	obj.Conn().SendRequest(obj, wl_shell_surface_pong, serial)
@@ -549,7 +563,7 @@ const (
 	SurfaceErrorInvalidTransform = 1
 )
 
-var SurfaceInterface = &wayland.Interface{
+var surfaceInterface = &wayland.Interface{
 	Name:    "wl_surface",
 	Version: 4,
 	Events: []wayland.MessageEvent{
@@ -565,6 +579,7 @@ var SurfaceInterface = &wayland.Interface{
 
 type Surface struct{ wayland.Proxy }
 
+func (*Surface) Interface() *wayland.Interface { return surfaceInterface }
 func (obj *Surface) Destroy() {
 	const wl_surface_destroy = 0
 	obj.Conn().SendRequest(obj, wl_surface_destroy)
@@ -580,7 +595,7 @@ func (obj *Surface) Damage(x int32, y int32, width int32, height int32) {
 func (obj *Surface) Frame() *Callback {
 	const wl_surface_frame = 3
 	_ret := &Callback{}
-	obj.Conn().NewProxy(0, _ret, CallbackInterface)
+	obj.Conn().NewProxy(0, _ret)
 	obj.Conn().SendRequest(obj, wl_surface_frame, _ret)
 	return _ret
 }
@@ -615,7 +630,7 @@ const (
 	SeatCapabilityTouch    = 4
 )
 
-var SeatInterface = &wayland.Interface{
+var seatInterface = &wayland.Interface{
 	Name:    "wl_seat",
 	Version: 7,
 	Events: []wayland.MessageEvent{
@@ -631,24 +646,25 @@ var SeatInterface = &wayland.Interface{
 
 type Seat struct{ wayland.Proxy }
 
+func (*Seat) Interface() *wayland.Interface { return seatInterface }
 func (obj *Seat) GetPointer() *Pointer {
 	const wl_seat_get_pointer = 0
 	_ret := &Pointer{}
-	obj.Conn().NewProxy(0, _ret, PointerInterface)
+	obj.Conn().NewProxy(0, _ret)
 	obj.Conn().SendRequest(obj, wl_seat_get_pointer, _ret)
 	return _ret
 }
 func (obj *Seat) GetKeyboard() *Keyboard {
 	const wl_seat_get_keyboard = 1
 	_ret := &Keyboard{}
-	obj.Conn().NewProxy(0, _ret, KeyboardInterface)
+	obj.Conn().NewProxy(0, _ret)
 	obj.Conn().SendRequest(obj, wl_seat_get_keyboard, _ret)
 	return _ret
 }
 func (obj *Seat) GetTouch() *Touch {
 	const wl_seat_get_touch = 2
 	_ret := &Touch{}
-	obj.Conn().NewProxy(0, _ret, TouchInterface)
+	obj.Conn().NewProxy(0, _ret)
 	obj.Conn().SendRequest(obj, wl_seat_get_touch, _ret)
 	return _ret
 }
@@ -675,7 +691,7 @@ const (
 	PointerAxisSourceWheelTilt  = 3
 )
 
-var PointerInterface = &wayland.Interface{
+var pointerInterface = &wayland.Interface{
 	Name:    "wl_pointer",
 	Version: 7,
 	Events: []wayland.MessageEvent{
@@ -719,6 +735,7 @@ var PointerInterface = &wayland.Interface{
 
 type Pointer struct{ wayland.Proxy }
 
+func (*Pointer) Interface() *wayland.Interface { return pointerInterface }
 func (obj *Pointer) SetCursor(serial uint32, surface *Surface, hotspotX int32, hotspotY int32) {
 	const wl_pointer_set_cursor = 0
 	obj.Conn().SendRequest(obj, wl_pointer_set_cursor, serial, surface, hotspotX, hotspotY)
@@ -737,7 +754,7 @@ const (
 	KeyboardKeyStatePressed  = 1
 )
 
-var KeyboardInterface = &wayland.Interface{
+var keyboardInterface = &wayland.Interface{
 	Name:    "wl_keyboard",
 	Version: 7,
 	Events: []wayland.MessageEvent{
@@ -769,12 +786,13 @@ var KeyboardInterface = &wayland.Interface{
 
 type Keyboard struct{ wayland.Proxy }
 
+func (*Keyboard) Interface() *wayland.Interface { return keyboardInterface }
 func (obj *Keyboard) Release() {
 	const wl_keyboard_release = 0
 	obj.Conn().SendRequest(obj, wl_keyboard_release)
 }
 
-var TouchInterface = &wayland.Interface{
+var touchInterface = &wayland.Interface{
 	Name:    "wl_touch",
 	Version: 7,
 	Events: []wayland.MessageEvent{
@@ -810,6 +828,7 @@ var TouchInterface = &wayland.Interface{
 
 type Touch struct{ wayland.Proxy }
 
+func (*Touch) Interface() *wayland.Interface { return touchInterface }
 func (obj *Touch) Release() {
 	const wl_touch_release = 0
 	obj.Conn().SendRequest(obj, wl_touch_release)
@@ -838,7 +857,7 @@ const (
 	OutputModePreferred = 0x2
 )
 
-var OutputInterface = &wayland.Interface{
+var outputInterface = &wayland.Interface{
 	Name:    "wl_output",
 	Version: 3,
 	Events: []wayland.MessageEvent{
@@ -862,12 +881,13 @@ var OutputInterface = &wayland.Interface{
 
 type Output struct{ wayland.Proxy }
 
+func (*Output) Interface() *wayland.Interface { return outputInterface }
 func (obj *Output) Release() {
 	const wl_output_release = 0
 	obj.Conn().SendRequest(obj, wl_output_release)
 }
 
-var RegionInterface = &wayland.Interface{
+var regionInterface = &wayland.Interface{
 	Name:    "wl_region",
 	Version: 1,
 	Events:  []wayland.MessageEvent{},
@@ -875,6 +895,7 @@ var RegionInterface = &wayland.Interface{
 
 type Region struct{ wayland.Proxy }
 
+func (*Region) Interface() *wayland.Interface { return regionInterface }
 func (obj *Region) Destroy() {
 	const wl_region_destroy = 0
 	obj.Conn().SendRequest(obj, wl_region_destroy)
@@ -892,7 +913,7 @@ const (
 	SubcompositorErrorBadSurface = 0
 )
 
-var SubcompositorInterface = &wayland.Interface{
+var subcompositorInterface = &wayland.Interface{
 	Name:    "wl_subcompositor",
 	Version: 1,
 	Events:  []wayland.MessageEvent{},
@@ -900,6 +921,7 @@ var SubcompositorInterface = &wayland.Interface{
 
 type Subcompositor struct{ wayland.Proxy }
 
+func (*Subcompositor) Interface() *wayland.Interface { return subcompositorInterface }
 func (obj *Subcompositor) Destroy() {
 	const wl_subcompositor_destroy = 0
 	obj.Conn().SendRequest(obj, wl_subcompositor_destroy)
@@ -907,7 +929,7 @@ func (obj *Subcompositor) Destroy() {
 func (obj *Subcompositor) GetSubsurface(surface *Surface, parent *Surface) *Subsurface {
 	const wl_subcompositor_get_subsurface = 1
 	_ret := &Subsurface{}
-	obj.Conn().NewProxy(0, _ret, SubsurfaceInterface)
+	obj.Conn().NewProxy(0, _ret)
 	obj.Conn().SendRequest(obj, wl_subcompositor_get_subsurface, _ret, surface, parent)
 	return _ret
 }
@@ -916,7 +938,7 @@ const (
 	SubsurfaceErrorBadSurface = 0
 )
 
-var SubsurfaceInterface = &wayland.Interface{
+var subsurfaceInterface = &wayland.Interface{
 	Name:    "wl_subsurface",
 	Version: 1,
 	Events:  []wayland.MessageEvent{},
@@ -924,6 +946,7 @@ var SubsurfaceInterface = &wayland.Interface{
 
 type Subsurface struct{ wayland.Proxy }
 
+func (*Subsurface) Interface() *wayland.Interface { return subsurfaceInterface }
 func (obj *Subsurface) Destroy() {
 	const wl_subsurface_destroy = 0
 	obj.Conn().SendRequest(obj, wl_subsurface_destroy)
