@@ -100,6 +100,10 @@ func ifaceName(name string) string {
 	return goIdentifier(name) + "Interface"
 }
 
+func eventTypeName(iface elInterface, event elEvent) string {
+	return fmt.Sprintf("%sEvent%s", typeName(iface.Name), exportedGoIdentifier(event.Name))
+}
+
 // XXX check for reserved names
 
 func exportedGoIdentifier(name string) string {
@@ -212,54 +216,56 @@ func printRequests(iface elInterface) {
 func printInterface(iface elInterface) {
 	events := make([]string, len(iface.Events))
 	for i, event := range iface.Events {
-		args := make([]string, len(event.Args))
-		for j, arg := range event.Args {
-			var typ string
-			switch arg.Type {
-			case "int":
-				typ = "int32(0)"
-			case "uint":
-				typ = "uint32(0)"
-			case "fixed":
-				typ = "wayland.Fixed(0)"
-			case "string":
-				typ = `""`
-			case "object":
-				// when we receive an event with an object arg, then
-				// we don't need to know the interface ahead of time,
-				// because we'll look up the concrete object based on
-				// its ID.
-				typ = "nil"
-			case "new_id":
-				// when we receive an event with a new_id, we need to
-				// create the appropriate proxy with the correct
-				// interface.
-				typ = ifaceName(arg.Interface)
-			case "array":
-				typ = `"XXX"`
-			case "fd":
-				typ = `"XXX"`
-			default:
-				// XXX
-				panic(fmt.Sprintf("unsupported type %s", arg.Type))
-			}
-			args[j] = fmt.Sprintf("%s", typ)
-		}
-
-		events[i] = fmt.Sprintf(`
-wayland.MessageEvent{
-  Name: "%s",
-  Types: []interface{}{%s},
-}`, event.Name, strings.Join(args, ","))
+		events[i] = fmt.Sprintf("(*%s)(nil)", eventTypeName(iface, event))
 	}
 
 	fmt.Printf(`
 var %s = &wayland.Interface{
   Name: "%s",
   Version: %s,
-  Events: []wayland.MessageEvent{%s},
+  Events: []interface{}{%s},
 }
 `, ifaceName(iface.Name), iface.Name, iface.Version, strings.Join(events, ","))
+}
+
+func printEvents(iface elInterface) {
+	for _, event := range iface.Events {
+		fmt.Printf("type %s struct {\n", eventTypeName(iface, event))
+		for _, arg := range event.Args {
+			var typ string
+			switch arg.Type {
+			case "int":
+				typ = "int32"
+			case "uint":
+				typ = "uint32"
+			case "fixed":
+				typ = "wayland.Fixed"
+			case "string":
+				typ = "string"
+			case "object":
+				if arg.Interface != "" {
+					typ = "*" + typeName(arg.Interface)
+				} else {
+					typ = "wayland.Object"
+				}
+			case "new_id":
+				typ = "*" + typeName(arg.Interface)
+			case "array":
+				// XXX
+				typ = "uintptr"
+			case "fd":
+				// XXX
+				typ = "uintptr"
+			}
+			printArgDocs(arg)
+			fmt.Printf("%s %s", exportedGoIdentifier(arg.Name), typ)
+			if arg.Type == "new_id" {
+				fmt.Print(" `wl:\"new_id\"`")
+			}
+			fmt.Println()
+		}
+		fmt.Printf("}\n\n")
+	}
 }
 
 func printDocs(docs elDescription) {
@@ -289,6 +295,17 @@ func printEnumEntryDocs(entry elEntry) {
 	fmt.Println("//", entry.Summary)
 }
 
+func printArgDocs(arg elArg) {
+	if arg.Description.Text != "" || arg.Description.Summary != "" {
+		printDocs(arg.Description)
+		return
+	}
+	if arg.Summary == "" {
+		return
+	}
+	fmt.Println("//", arg.Summary)
+}
+
 func main() {
 	f, err := os.OpenFile(os.Args[1], os.O_RDONLY, 0)
 	if err != nil {
@@ -306,6 +323,7 @@ func main() {
 	for _, iface := range spec.Interfaces {
 		printEnums(iface)
 		printInterface(iface)
+		printEvents(iface)
 
 		printDocs(iface.Description)
 		fmt.Printf("type %s struct { wayland.Proxy }\n", typeName(iface.Name))

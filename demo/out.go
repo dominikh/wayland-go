@@ -1,4 +1,4 @@
-package pkg
+package demo
 
 import "honnef.co/go/wayland"
 
@@ -18,15 +18,21 @@ const (
 var displayInterface = &wayland.Interface{
 	Name:    "wl_display",
 	Version: 1,
-	Events: []wayland.MessageEvent{
-		wayland.MessageEvent{
-			Name:  "error",
-			Types: []interface{}{nil, uint32(0), ""},
-		},
-		wayland.MessageEvent{
-			Name:  "delete_id",
-			Types: []interface{}{uint32(0)},
-		}},
+	Events:  []interface{}{(*DisplayEventError)(nil), (*DisplayEventDeleteID)(nil)},
+}
+
+type DisplayEventError struct {
+	// object where the error occurred
+	ObjectID wayland.Object
+	// error code
+	Code uint32
+	// error description
+	Message string
+}
+
+type DisplayEventDeleteID struct {
+	// deleted object ID
+	ID uint32
 }
 
 // The core global object.  This is a special singleton object.  It
@@ -74,15 +80,21 @@ func (obj *Display) GetRegistry() *Registry {
 var registryInterface = &wayland.Interface{
 	Name:    "wl_registry",
 	Version: 1,
-	Events: []wayland.MessageEvent{
-		wayland.MessageEvent{
-			Name:  "global",
-			Types: []interface{}{uint32(0), "", uint32(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "global_remove",
-			Types: []interface{}{uint32(0)},
-		}},
+	Events:  []interface{}{(*RegistryEventGlobal)(nil), (*RegistryEventGlobalRemove)(nil)},
+}
+
+type RegistryEventGlobal struct {
+	// numeric name of the global object
+	Name uint32 `wl:"hi"`
+	// interface implemented by the object
+	Interface string
+	// interface version
+	Version uint32
+}
+
+type RegistryEventGlobalRemove struct {
+	// numeric name of the global object
+	Name uint32
 }
 
 // The singleton global registry object.  The server has a number of
@@ -119,11 +131,12 @@ func (obj *Registry) Bind(name uint32, id wayland.Object) {
 var callbackInterface = &wayland.Interface{
 	Name:    "wl_callback",
 	Version: 1,
-	Events: []wayland.MessageEvent{
-		wayland.MessageEvent{
-			Name:  "done",
-			Types: []interface{}{uint32(0)},
-		}},
+	Events:  []interface{}{(*CallbackEventDone)(nil)},
+}
+
+type CallbackEventDone struct {
+	// request-specific data for the callback
+	CallbackData uint32
 }
 
 // Clients can handle the 'done' event to get notified when
@@ -135,7 +148,7 @@ func (*Callback) Interface() *wayland.Interface { return callbackInterface }
 var compositorInterface = &wayland.Interface{
 	Name:    "wl_compositor",
 	Version: 4,
-	Events:  []wayland.MessageEvent{},
+	Events:  []interface{}{},
 }
 
 // A compositor.  This object is a singleton global.  The
@@ -166,7 +179,7 @@ func (obj *Compositor) CreateRegion() *Region {
 var shmPoolInterface = &wayland.Interface{
 	Name:    "wl_shm_pool",
 	Version: 1,
-	Events:  []wayland.MessageEvent{},
+	Events:  []interface{}{},
 }
 
 // The wl_shm_pool object encapsulates a piece of memory shared
@@ -433,11 +446,12 @@ const (
 var shmInterface = &wayland.Interface{
 	Name:    "wl_shm",
 	Version: 1,
-	Events: []wayland.MessageEvent{
-		wayland.MessageEvent{
-			Name:  "format",
-			Types: []interface{}{uint32(0)},
-		}},
+	Events:  []interface{}{(*ShmEventFormat)(nil)},
+}
+
+type ShmEventFormat struct {
+	// buffer pixel format
+	Format uint32
 }
 
 // A singleton global object that provides support for shared
@@ -469,11 +483,10 @@ func (obj *Shm) CreatePool(fd int32, size int32) *ShmPool {
 var bufferInterface = &wayland.Interface{
 	Name:    "wl_buffer",
 	Version: 1,
-	Events: []wayland.MessageEvent{
-		wayland.MessageEvent{
-			Name:  "release",
-			Types: []interface{}{},
-		}},
+	Events:  []interface{}{(*BufferEventRelease)(nil)},
+}
+
+type BufferEventRelease struct {
 }
 
 // A buffer provides the content for a wl_surface. Buffers are
@@ -508,19 +521,22 @@ const (
 var dataOfferInterface = &wayland.Interface{
 	Name:    "wl_data_offer",
 	Version: 3,
-	Events: []wayland.MessageEvent{
-		wayland.MessageEvent{
-			Name:  "offer",
-			Types: []interface{}{""},
-		},
-		wayland.MessageEvent{
-			Name:  "source_actions",
-			Types: []interface{}{uint32(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "action",
-			Types: []interface{}{uint32(0)},
-		}},
+	Events:  []interface{}{(*DataOfferEventOffer)(nil), (*DataOfferEventSourceActions)(nil), (*DataOfferEventAction)(nil)},
+}
+
+type DataOfferEventOffer struct {
+	// offered mime type
+	MimeType string
+}
+
+type DataOfferEventSourceActions struct {
+	// actions offered by the data source
+	SourceActions uint32
+}
+
+type DataOfferEventAction struct {
+	// action selected by the compositor
+	DndAction uint32
 }
 
 // A wl_data_offer represents a piece of data offered for transfer
@@ -643,31 +659,33 @@ const (
 var dataSourceInterface = &wayland.Interface{
 	Name:    "wl_data_source",
 	Version: 3,
-	Events: []wayland.MessageEvent{
-		wayland.MessageEvent{
-			Name:  "target",
-			Types: []interface{}{""},
-		},
-		wayland.MessageEvent{
-			Name:  "send",
-			Types: []interface{}{"", "XXX"},
-		},
-		wayland.MessageEvent{
-			Name:  "cancelled",
-			Types: []interface{}{},
-		},
-		wayland.MessageEvent{
-			Name:  "dnd_drop_performed",
-			Types: []interface{}{},
-		},
-		wayland.MessageEvent{
-			Name:  "dnd_finished",
-			Types: []interface{}{},
-		},
-		wayland.MessageEvent{
-			Name:  "action",
-			Types: []interface{}{uint32(0)},
-		}},
+	Events:  []interface{}{(*DataSourceEventTarget)(nil), (*DataSourceEventSend)(nil), (*DataSourceEventCancelled)(nil), (*DataSourceEventDndDropPerformed)(nil), (*DataSourceEventDndFinished)(nil), (*DataSourceEventAction)(nil)},
+}
+
+type DataSourceEventTarget struct {
+	// mime type accepted by the target
+	MimeType string
+}
+
+type DataSourceEventSend struct {
+	// mime type for the data
+	MimeType string
+	// file descriptor for the data
+	Fd uintptr
+}
+
+type DataSourceEventCancelled struct {
+}
+
+type DataSourceEventDndDropPerformed struct {
+}
+
+type DataSourceEventDndFinished struct {
+}
+
+type DataSourceEventAction struct {
+	// action selected by the compositor
+	DndAction uint32
 }
 
 // The wl_data_source object is the source side of a wl_data_offer.
@@ -718,31 +736,45 @@ const (
 var dataDeviceInterface = &wayland.Interface{
 	Name:    "wl_data_device",
 	Version: 3,
-	Events: []wayland.MessageEvent{
-		wayland.MessageEvent{
-			Name:  "data_offer",
-			Types: []interface{}{dataOfferInterface},
-		},
-		wayland.MessageEvent{
-			Name:  "enter",
-			Types: []interface{}{uint32(0), nil, wayland.Fixed(0), wayland.Fixed(0), nil},
-		},
-		wayland.MessageEvent{
-			Name:  "leave",
-			Types: []interface{}{},
-		},
-		wayland.MessageEvent{
-			Name:  "motion",
-			Types: []interface{}{uint32(0), wayland.Fixed(0), wayland.Fixed(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "drop",
-			Types: []interface{}{},
-		},
-		wayland.MessageEvent{
-			Name:  "selection",
-			Types: []interface{}{nil},
-		}},
+	Events:  []interface{}{(*DataDeviceEventDataOffer)(nil), (*DataDeviceEventEnter)(nil), (*DataDeviceEventLeave)(nil), (*DataDeviceEventMotion)(nil), (*DataDeviceEventDrop)(nil), (*DataDeviceEventSelection)(nil)},
+}
+
+type DataDeviceEventDataOffer struct {
+	// the new data_offer object
+	ID *DataOffer `wl:"new_id"`
+}
+
+type DataDeviceEventEnter struct {
+	// serial number of the enter event
+	Serial uint32
+	// client surface entered
+	Surface *Surface
+	// surface-local x coordinate
+	X wayland.Fixed
+	// surface-local y coordinate
+	Y wayland.Fixed
+	// source data_offer object
+	ID *DataOffer
+}
+
+type DataDeviceEventLeave struct {
+}
+
+type DataDeviceEventMotion struct {
+	// timestamp with millisecond granularity
+	Time uint32
+	// surface-local x coordinate
+	X wayland.Fixed
+	// surface-local y coordinate
+	Y wayland.Fixed
+}
+
+type DataDeviceEventDrop struct {
+}
+
+type DataDeviceEventSelection struct {
+	// selection data_offer object
+	ID *DataOffer
 }
 
 // There is one wl_data_device per seat which can be obtained
@@ -838,7 +870,7 @@ const (
 var dataDeviceManagerInterface = &wayland.Interface{
 	Name:    "wl_data_device_manager",
 	Version: 3,
-	Events:  []wayland.MessageEvent{},
+	Events:  []interface{}{},
 }
 
 // The wl_data_device_manager is a singleton global object that
@@ -881,7 +913,7 @@ const (
 var shellInterface = &wayland.Interface{
 	Name:    "wl_shell",
 	Version: 1,
-	Events:  []wayland.MessageEvent{},
+	Events:  []interface{}{},
 }
 
 // This interface is implemented by servers that provide
@@ -958,19 +990,24 @@ const (
 var shellSurfaceInterface = &wayland.Interface{
 	Name:    "wl_shell_surface",
 	Version: 1,
-	Events: []wayland.MessageEvent{
-		wayland.MessageEvent{
-			Name:  "ping",
-			Types: []interface{}{uint32(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "configure",
-			Types: []interface{}{uint32(0), int32(0), int32(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "popup_done",
-			Types: []interface{}{},
-		}},
+	Events:  []interface{}{(*ShellSurfaceEventPing)(nil), (*ShellSurfaceEventConfigure)(nil), (*ShellSurfaceEventPopupDone)(nil)},
+}
+
+type ShellSurfaceEventPing struct {
+	// serial number of the ping
+	Serial uint32
+}
+
+type ShellSurfaceEventConfigure struct {
+	// how the surface was resized
+	Edges uint32
+	// new width of the surface
+	Width int32
+	// new height of the surface
+	Height int32
+}
+
+type ShellSurfaceEventPopupDone struct {
 }
 
 // An interface that may be implemented by a wl_surface, for
@@ -1154,15 +1191,17 @@ const (
 var surfaceInterface = &wayland.Interface{
 	Name:    "wl_surface",
 	Version: 4,
-	Events: []wayland.MessageEvent{
-		wayland.MessageEvent{
-			Name:  "enter",
-			Types: []interface{}{nil},
-		},
-		wayland.MessageEvent{
-			Name:  "leave",
-			Types: []interface{}{nil},
-		}},
+	Events:  []interface{}{(*SurfaceEventEnter)(nil), (*SurfaceEventLeave)(nil)},
+}
+
+type SurfaceEventEnter struct {
+	// output entered by the surface
+	Output *Output
+}
+
+type SurfaceEventLeave struct {
+	// output left by the surface
+	Output *Output
 }
 
 // A surface is a rectangular area that may be displayed on zero
@@ -1523,15 +1562,17 @@ const (
 var seatInterface = &wayland.Interface{
 	Name:    "wl_seat",
 	Version: 7,
-	Events: []wayland.MessageEvent{
-		wayland.MessageEvent{
-			Name:  "capabilities",
-			Types: []interface{}{uint32(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "name",
-			Types: []interface{}{""},
-		}},
+	Events:  []interface{}{(*SeatEventCapabilities)(nil), (*SeatEventName)(nil)},
+}
+
+type SeatEventCapabilities struct {
+	// capabilities of the seat
+	Capabilities uint32
+}
+
+type SeatEventName struct {
+	// seat identifier
+	Name string
 }
 
 // A seat is a group of keyboards, pointer and touch devices. This
@@ -1646,43 +1687,76 @@ const (
 var pointerInterface = &wayland.Interface{
 	Name:    "wl_pointer",
 	Version: 7,
-	Events: []wayland.MessageEvent{
-		wayland.MessageEvent{
-			Name:  "enter",
-			Types: []interface{}{uint32(0), nil, wayland.Fixed(0), wayland.Fixed(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "leave",
-			Types: []interface{}{uint32(0), nil},
-		},
-		wayland.MessageEvent{
-			Name:  "motion",
-			Types: []interface{}{uint32(0), wayland.Fixed(0), wayland.Fixed(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "button",
-			Types: []interface{}{uint32(0), uint32(0), uint32(0), uint32(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "axis",
-			Types: []interface{}{uint32(0), uint32(0), wayland.Fixed(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "frame",
-			Types: []interface{}{},
-		},
-		wayland.MessageEvent{
-			Name:  "axis_source",
-			Types: []interface{}{uint32(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "axis_stop",
-			Types: []interface{}{uint32(0), uint32(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "axis_discrete",
-			Types: []interface{}{uint32(0), int32(0)},
-		}},
+	Events:  []interface{}{(*PointerEventEnter)(nil), (*PointerEventLeave)(nil), (*PointerEventMotion)(nil), (*PointerEventButton)(nil), (*PointerEventAxis)(nil), (*PointerEventFrame)(nil), (*PointerEventAxisSource)(nil), (*PointerEventAxisStop)(nil), (*PointerEventAxisDiscrete)(nil)},
+}
+
+type PointerEventEnter struct {
+	// serial number of the enter event
+	Serial uint32
+	// surface entered by the pointer
+	Surface *Surface
+	// surface-local x coordinate
+	SurfaceX wayland.Fixed
+	// surface-local y coordinate
+	SurfaceY wayland.Fixed
+}
+
+type PointerEventLeave struct {
+	// serial number of the leave event
+	Serial uint32
+	// surface left by the pointer
+	Surface *Surface
+}
+
+type PointerEventMotion struct {
+	// timestamp with millisecond granularity
+	Time uint32
+	// surface-local x coordinate
+	SurfaceX wayland.Fixed
+	// surface-local y coordinate
+	SurfaceY wayland.Fixed
+}
+
+type PointerEventButton struct {
+	// serial number of the button event
+	Serial uint32
+	// timestamp with millisecond granularity
+	Time uint32
+	// button that produced the event
+	Button uint32
+	// physical state of the button
+	State uint32
+}
+
+type PointerEventAxis struct {
+	// timestamp with millisecond granularity
+	Time uint32
+	// axis type
+	Axis uint32
+	// length of vector in surface-local coordinate space
+	Value wayland.Fixed
+}
+
+type PointerEventFrame struct {
+}
+
+type PointerEventAxisSource struct {
+	// source of the axis event
+	AxisSource uint32
+}
+
+type PointerEventAxisStop struct {
+	// timestamp with millisecond granularity
+	Time uint32
+	// the axis stopped with this event
+	Axis uint32
+}
+
+type PointerEventAxisDiscrete struct {
+	// axis type
+	Axis uint32
+	// number of steps
+	Discrete int32
 }
 
 // The wl_pointer interface represents one or more input devices,
@@ -1763,31 +1837,63 @@ const (
 var keyboardInterface = &wayland.Interface{
 	Name:    "wl_keyboard",
 	Version: 7,
-	Events: []wayland.MessageEvent{
-		wayland.MessageEvent{
-			Name:  "keymap",
-			Types: []interface{}{uint32(0), "XXX", uint32(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "enter",
-			Types: []interface{}{uint32(0), nil, "XXX"},
-		},
-		wayland.MessageEvent{
-			Name:  "leave",
-			Types: []interface{}{uint32(0), nil},
-		},
-		wayland.MessageEvent{
-			Name:  "key",
-			Types: []interface{}{uint32(0), uint32(0), uint32(0), uint32(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "modifiers",
-			Types: []interface{}{uint32(0), uint32(0), uint32(0), uint32(0), uint32(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "repeat_info",
-			Types: []interface{}{int32(0), int32(0)},
-		}},
+	Events:  []interface{}{(*KeyboardEventKeymap)(nil), (*KeyboardEventEnter)(nil), (*KeyboardEventLeave)(nil), (*KeyboardEventKey)(nil), (*KeyboardEventModifiers)(nil), (*KeyboardEventRepeatInfo)(nil)},
+}
+
+type KeyboardEventKeymap struct {
+	// keymap format
+	Format uint32
+	// keymap file descriptor
+	Fd uintptr
+	// keymap size, in bytes
+	Size uint32
+}
+
+type KeyboardEventEnter struct {
+	// serial number of the enter event
+	Serial uint32
+	// surface gaining keyboard focus
+	Surface *Surface
+	// the currently pressed keys
+	Keys uintptr
+}
+
+type KeyboardEventLeave struct {
+	// serial number of the leave event
+	Serial uint32
+	// surface that lost keyboard focus
+	Surface *Surface
+}
+
+type KeyboardEventKey struct {
+	// serial number of the key event
+	Serial uint32
+	// timestamp with millisecond granularity
+	Time uint32
+	// key that produced the event
+	Key uint32
+	// physical state of the key
+	State uint32
+}
+
+type KeyboardEventModifiers struct {
+	// serial number of the modifiers event
+	Serial uint32
+	// depressed modifiers
+	ModsDepressed uint32
+	// latched modifiers
+	ModsLatched uint32
+	// locked modifiers
+	ModsLocked uint32
+	// keyboard layout
+	Group uint32
+}
+
+type KeyboardEventRepeatInfo struct {
+	// the rate of repeating keys in characters per second
+	Rate int32
+	// delay in milliseconds since key down until repeating starts
+	Delay int32
 }
 
 // The wl_keyboard interface represents one or more keyboards
@@ -1805,35 +1911,64 @@ func (obj *Keyboard) Release() {
 var touchInterface = &wayland.Interface{
 	Name:    "wl_touch",
 	Version: 7,
-	Events: []wayland.MessageEvent{
-		wayland.MessageEvent{
-			Name:  "down",
-			Types: []interface{}{uint32(0), uint32(0), nil, int32(0), wayland.Fixed(0), wayland.Fixed(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "up",
-			Types: []interface{}{uint32(0), uint32(0), int32(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "motion",
-			Types: []interface{}{uint32(0), int32(0), wayland.Fixed(0), wayland.Fixed(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "frame",
-			Types: []interface{}{},
-		},
-		wayland.MessageEvent{
-			Name:  "cancel",
-			Types: []interface{}{},
-		},
-		wayland.MessageEvent{
-			Name:  "shape",
-			Types: []interface{}{int32(0), wayland.Fixed(0), wayland.Fixed(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "orientation",
-			Types: []interface{}{int32(0), wayland.Fixed(0)},
-		}},
+	Events:  []interface{}{(*TouchEventDown)(nil), (*TouchEventUp)(nil), (*TouchEventMotion)(nil), (*TouchEventFrame)(nil), (*TouchEventCancel)(nil), (*TouchEventShape)(nil), (*TouchEventOrientation)(nil)},
+}
+
+type TouchEventDown struct {
+	// serial number of the touch down event
+	Serial uint32
+	// timestamp with millisecond granularity
+	Time uint32
+	// surface touched
+	Surface *Surface
+	// the unique ID of this touch point
+	ID int32
+	// surface-local x coordinate
+	X wayland.Fixed
+	// surface-local y coordinate
+	Y wayland.Fixed
+}
+
+type TouchEventUp struct {
+	// serial number of the touch up event
+	Serial uint32
+	// timestamp with millisecond granularity
+	Time uint32
+	// the unique ID of this touch point
+	ID int32
+}
+
+type TouchEventMotion struct {
+	// timestamp with millisecond granularity
+	Time uint32
+	// the unique ID of this touch point
+	ID int32
+	// surface-local x coordinate
+	X wayland.Fixed
+	// surface-local y coordinate
+	Y wayland.Fixed
+}
+
+type TouchEventFrame struct {
+}
+
+type TouchEventCancel struct {
+}
+
+type TouchEventShape struct {
+	// the unique ID of this touch point
+	ID int32
+	// length of the major axis in surface-local coordinates
+	Major wayland.Fixed
+	// length of the minor axis in surface-local coordinates
+	Minor wayland.Fixed
+}
+
+type TouchEventOrientation struct {
+	// the unique ID of this touch point
+	ID int32
+	// angle between major axis and positive surface y-axis in degrees
+	Orientation wayland.Fixed
 }
 
 // The wl_touch interface represents a touchscreen
@@ -1913,23 +2048,45 @@ const (
 var outputInterface = &wayland.Interface{
 	Name:    "wl_output",
 	Version: 3,
-	Events: []wayland.MessageEvent{
-		wayland.MessageEvent{
-			Name:  "geometry",
-			Types: []interface{}{int32(0), int32(0), int32(0), int32(0), int32(0), "", "", int32(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "mode",
-			Types: []interface{}{uint32(0), int32(0), int32(0), int32(0)},
-		},
-		wayland.MessageEvent{
-			Name:  "done",
-			Types: []interface{}{},
-		},
-		wayland.MessageEvent{
-			Name:  "scale",
-			Types: []interface{}{int32(0)},
-		}},
+	Events:  []interface{}{(*OutputEventGeometry)(nil), (*OutputEventMode)(nil), (*OutputEventDone)(nil), (*OutputEventScale)(nil)},
+}
+
+type OutputEventGeometry struct {
+	// x position within the global compositor space
+	X int32
+	// y position within the global compositor space
+	Y int32
+	// width in millimeters of the output
+	PhysicalWidth int32
+	// height in millimeters of the output
+	PhysicalHeight int32
+	// subpixel orientation of the output
+	Subpixel int32
+	// textual description of the manufacturer
+	Make string
+	// textual description of the model
+	Model string
+	// transform that maps framebuffer to output
+	Transform int32
+}
+
+type OutputEventMode struct {
+	// bitfield of mode flags
+	Flags uint32
+	// width of the mode in hardware units
+	Width int32
+	// height of the mode in hardware units
+	Height int32
+	// vertical refresh rate in mHz
+	Refresh int32
+}
+
+type OutputEventDone struct {
+}
+
+type OutputEventScale struct {
+	// scaling factor of output
+	Factor int32
 }
 
 // An output describes part of the compositor geometry.  The
@@ -1952,7 +2109,7 @@ func (obj *Output) Release() {
 var regionInterface = &wayland.Interface{
 	Name:    "wl_region",
 	Version: 1,
-	Events:  []wayland.MessageEvent{},
+	Events:  []interface{}{},
 }
 
 // A region object describes an area.
@@ -1989,7 +2146,7 @@ const (
 var subcompositorInterface = &wayland.Interface{
 	Name:    "wl_subcompositor",
 	Version: 1,
-	Events:  []wayland.MessageEvent{},
+	Events:  []interface{}{},
 }
 
 // The global interface exposing sub-surface compositing capabilities.
@@ -2054,7 +2211,7 @@ const (
 var subsurfaceInterface = &wayland.Interface{
 	Name:    "wl_subsurface",
 	Version: 1,
-	Events:  []wayland.MessageEvent{},
+	Events:  []interface{}{},
 }
 
 // An additional interface to a wl_surface object, which has been

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"reflect"
 	"unsafe"
 )
 
@@ -40,30 +41,19 @@ func init() {
 }
 
 type Interface struct {
-	Name     string
-	Version  int
-	Requests []MessageRequest
-	Events   []MessageEvent
-}
-
-type MessageRequest struct {
-	Name  string
-	Types []string
-}
-
-type MessageEvent struct {
-	Name  string
-	Types []interface{}
+	Name    string
+	Version int
+	Events  []interface{}
 }
 
 type Proxy struct {
-	id    ObjectID
-	conn  *Conn
+	id   ObjectID
+	conn *Conn
 }
 
-func (p *Proxy) GetProxy() *Proxy      { return p }
-func (p *Proxy) ID() ObjectID          { return p.id }
-func (p *Proxy) Conn() *Conn           { return p.conn }
+func (p *Proxy) GetProxy() *Proxy { return p }
+func (p *Proxy) ID() ObjectID     { return p.id }
+func (p *Proxy) Conn() *Conn      { return p.conn }
 
 type Conn struct {
 	rw      io.ReadWriter
@@ -85,15 +75,6 @@ func NewConn(rw io.ReadWriter) *Conn {
 			log.Println("error in read loop:", err)
 		}
 	}()
-
-	// dsp := &Display{
-	// 	Proxy:Proxy{
-	// 		id: 1,
-	// 		conn: c,
-	// 		iface: DisplayInterface,
-	// 	},
-	// }
-	// dsp.GetRegistry()
 	return c
 }
 
@@ -105,15 +86,15 @@ func (c *Conn) Test() {
 	c.rw.Write(b)
 }
 
-func (c *Conn) NewProxy(id ObjectID, obj Object)  {
+func (c *Conn) NewProxy(id ObjectID, obj Object) {
 	if id == 0 {
 		c.maxID++
 		id = c.maxID
 	}
 	p := obj.GetProxy()
 	*p = Proxy{
-		id:    id,
-		conn:  c,
+		id:   id,
+		conn: c,
 	}
 	c.objects[id] = obj
 }
@@ -183,36 +164,40 @@ func (c *Conn) read() error {
 			if !ok {
 				// XXX unknown object
 			}
-			m := obj.Interface().Events[opcode]
 			off := 8 // skip the header
-			for _, typ := range m.Types {
-				switch typ.(type) {
+			evT := reflect.TypeOf(obj.Interface().Events[opcode])
+			ev := reflect.New(evT.Elem())
+			elem := ev.Elem()
+			for i := 0; i < elem.NumField(); i++ {
+				f := elem.Field(i)
+				num := byteOrder.Uint32(d[off:])
+				off += 4
+				switch f.Interface().(type) {
 				case int32:
-					fmt.Println(int32(byteOrder.Uint32(d[off:])))
-					off += 4
+					f.SetInt(int64(num))
 				case uint32:
-					fmt.Println(byteOrder.Uint32(d[off:]))
-					off += 4
+					f.SetUint(uint64(num))
 				case Fixed:
-					fmt.Println(Fixed(byteOrder.Uint32(d[off:])))
-					off += 4
+					f.SetUint(uint64(num))
 				case string:
-					n := int(byteOrder.Uint32(d[off:]))
-					s := string(d[off+4 : off+4+n-1])
-					fmt.Println(s)
-					off += 4 + n
+					s := string(d[off : off+int(num)-1])
+					f.SetString(s)
+					off += int(num)
 					off = (off + 3) & ^3
-				case *Interface:
-					// new_id
-					fmt.Println(byteOrder.Uint32(d[off:]))
-					off += 4
+				case Object:
+					if evT.Elem().Field(i).Tag.Get("wl") == "new_id" {
+						v := reflect.New(f.Type().Elem()).Interface().(Object)
+						c.NewProxy(ObjectID(num), v)
+						c.objects[ObjectID(num)] = v
+					} else {
+						f.Set(reflect.ValueOf(c.objects[ObjectID(num)]))
+					}
 				default:
-					// object
-					obj := c.objects[ObjectID(byteOrder.Uint32(d[off:]))]
-					fmt.Println(obj)
-					off += 4
+					// XXX support arrays and file descriptors
+					panic("unreachable")
 				}
 			}
+			fmt.Printf("%T\n",ev.Interface())
 
 			d = d[size:]
 		}
