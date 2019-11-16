@@ -116,13 +116,13 @@ func printEnums(iface elInterface) {
 	typeName := typeName(iface.Name)
 
 	for _, enum := range iface.Enums {
-		// TODO emit enum.Description
+		printDocs(enum.Description)
 		fmt.Println("const (")
 
 		ename := typeName + exportedGoIdentifier(enum.Name)
 		for _, entry := range enum.Entries {
 			eename := ename + exportedGoIdentifier(entry.Name)
-			// TODO emit entry.Summary or entry.Description
+			printEnumEntryDocs(entry)
 			fmt.Printf("%s = %s\n", eename, entry.Value)
 		}
 
@@ -132,8 +132,9 @@ func printEnums(iface elInterface) {
 
 func printRequests(iface elInterface) {
 	for i, req := range iface.Requests {
+		printDocs(req.Description)
+
 		reqName := exportedGoIdentifier(req.Name)
-		// TODO emit req.Description
 		fmt.Printf("func (obj *%s) %s(", typeName(iface.Name), reqName)
 		var ctor elArg
 		for _, arg := range req.Args {
@@ -148,7 +149,6 @@ func printRequests(iface elInterface) {
 			case "string":
 				typ = "string"
 			case "object":
-				// XXX interface
 				typ = "wayland.Object"
 				if arg.Interface != "" {
 					typ = "*" + typeName(arg.Interface)
@@ -210,21 +210,6 @@ func printRequests(iface elInterface) {
 }
 
 func printInterface(iface elInterface) {
-	/*
-	requests := make([]string, len(iface.Requests))
-	for i, req := range iface.Requests {
-		args := make([]string, len(req.Args))
-		for j, arg := range req.Args {
-			args[j] = `"` + arg.Type + `"`
-		}
-		requests[i] = fmt.Sprintf(`
-wayland.MessageRequest{
-  Name: "%s",
-  Types: []string{%s},
-}`, req.Name, strings.Join(args, ","))
-	}
-*/
-	
 	events := make([]string, len(iface.Events))
 	for i, event := range iface.Events {
 		args := make([]string, len(event.Args))
@@ -274,7 +259,34 @@ var %s = &wayland.Interface{
   Version: %s,
   Events: []wayland.MessageEvent{%s},
 }
-`, ifaceName(iface.Name), iface.Name, iface.Version,  strings.Join(events, ","))
+`, ifaceName(iface.Name), iface.Name, iface.Version, strings.Join(events, ","))
+}
+
+func printDocs(docs elDescription) {
+	text := docs.Text
+	if text == "" {
+		text = docs.Summary
+		if text == "" {
+			return
+		}
+	}
+
+	text = strings.TrimSpace(text)
+	lines := strings.Split(text, "\n")
+	for _, line := range lines {
+		fmt.Println("//", strings.TrimSpace(line))
+	}
+}
+
+func printEnumEntryDocs(entry elEntry) {
+	if entry.Description.Text != "" || entry.Description.Summary != "" {
+		printDocs(entry.Description)
+		return
+	}
+	if entry.Summary == "" {
+		return
+	}
+	fmt.Println("//", entry.Summary)
 }
 
 func main() {
@@ -295,8 +307,9 @@ func main() {
 		printEnums(iface)
 		printInterface(iface)
 
-		// TODO emit iface.Description
+		printDocs(iface.Description)
 		fmt.Printf("type %s struct { wayland.Proxy }\n", typeName(iface.Name))
+
 		fmt.Printf("func (*%s) Interface() *wayland.Interface { return %s }\n", typeName(iface.Name), ifaceName(iface.Name))
 
 		printRequests(iface)
