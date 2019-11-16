@@ -29,7 +29,8 @@ type Object interface {
 	Conn() *Conn
 	Interface() *Interface
 	GetProxy() *Proxy
-	NextEvent() Event
+	NextEvent() (Event, bool)
+	NextEventPoll() Event
 }
 
 var byteOrder binary.ByteOrder
@@ -74,7 +75,19 @@ func (p *Proxy) pushEvent(ev Event) {
 	p.mu.Unlock()
 }
 
-func (p *Proxy) NextEvent() Event {
+func (p *Proxy) NextEvent() (Event, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.events) > 0 {
+		ev := p.events[0]
+		copy(p.events, p.events[1:])
+		p.events = p.events[:len(p.events)-1]
+		return ev, true
+	}
+	return nil, false
+}
+
+func (p *Proxy) NextEventPoll() Event {
 	for {
 		p.mu.Lock()
 		if len(p.events) > 0 {
@@ -95,6 +108,9 @@ type Conn struct {
 	debug   bool
 
 	maxID ObjectID
+
+	data []byte
+	fds  []uintptr
 }
 
 func NewConn(rw *net.UnixConn) *Conn {
@@ -105,19 +121,11 @@ func NewConn(rw *net.UnixConn) *Conn {
 		maxID:   1,
 	}
 	go func() {
-		if err := c.read(); err != nil {
+		if err := c.readLoop(); err != nil {
 			log.Println("error in read loop:", err)
 		}
 	}()
 	return c
-}
-
-func (c *Conn) Test() {
-	b := make([]byte, 12)
-	b[3] = 1
-	byteOrder.PutUint32(b[4:], 8<<16|1)
-	b[11] = 2
-	c.rw.Write(b)
 }
 
 func (c *Conn) NewProxy(id ObjectID, obj Object) {
@@ -141,6 +149,7 @@ func (c *Conn) SendRequest(source Object, request int, args ...interface{}) {
 	// OPT(dh): cache buf in Conn
 	buf := make([]byte, 8, 8+len(args)*4)
 	var scratch [4]byte
+	var fds []int
 	for _, arg := range args {
 		switch arg := arg.(type) {
 		case int32:
@@ -164,6 +173,8 @@ func (c *Conn) SendRequest(source Object, request int, args ...interface{}) {
 			}
 			// XXX array
 			// XXX fd
+		case uintptr:
+			fds = append(fds, int(arg))
 		case Object:
 			id := arg.ID()
 			byteOrder.PutUint32(scratch[:], uint32(id))
@@ -175,10 +186,44 @@ func (c *Conn) SendRequest(source Object, request int, args ...interface{}) {
 	byteOrder.PutUint32(buf[0:4], uint32(source.ID()))
 	byteOrder.PutUint16(buf[4:6], uint16(request))
 	byteOrder.PutUint16(buf[6:8], uint16(len(buf)))
-	c.rw.Write(buf)
+
+	var oob []byte
+	if len(fds) > 0 {
+		oob = syscall.UnixRights(fds...)
+	}
+	c.rw.WriteMsgUnix(buf, oob, nil)
 }
 
-func (c *Conn) read() error {
+func (c *Conn) read() {
+	b := make([]byte, 1<<16)
+	// XXX can there be more than one SCM per message?
+	// XXX in general, be more robust in handling SCM
+	oob := make([]byte, 24)
+	n, oobn, _, _, err := c.rw.ReadMsgUnix(b, oob)
+	if err != nil {
+		panic(err)
+	}
+	c.data = append(c.data, b[:n]...)
+	if oobn == 24 {
+		scm, err := syscall.ParseSocketControlMessage(oob[:oobn])
+		if err != nil {
+			panic(err)
+		}
+		fds, err := syscall.ParseUnixRights(&scm[0])
+		if err != nil {
+			panic(err)
+		}
+		c.fds = append(c.fds, uintptr(fds[0]))
+	}
+}
+
+func (c *Conn) readAtLeast(n int) {
+	for len(c.data) < n {
+		c.read()
+	}
+}
+
+func (c *Conn) readLoop() error {
 	var (
 		tInt32   = reflect.TypeOf(int32(0))
 		tUint32  = reflect.TypeOf(uint32(0))
@@ -186,88 +231,78 @@ func (c *Conn) read() error {
 		tString  = reflect.TypeOf("")
 		tObject  = reflect.TypeOf((*Object)(nil)).Elem()
 		tUintptr = reflect.TypeOf(uintptr(0))
+		tArray   = reflect.TypeOf([]byte{})
 	)
 
-	// XXX it's a stream protocol, not a message protocol, so don't expect to read full messages
-
-	b := make([]byte, 1<<16)
-	oob := make([]byte, 24)
 	for {
-		n, oobn, flags, _, err := c.rw.ReadMsgUnix(b, oob)
-		log.Println("oobn, flags", oobn, flags)
-		if err != nil {
-			return err
+		c.readAtLeast(8)
+		sender := ObjectID(byteOrder.Uint32(c.data[0:4]))
+		h := byteOrder.Uint32(c.data[4:8])
+		size := (h & 0xFFFF0000) >> 16
+		if size < 8 {
+			// XXX invalid size
 		}
-		d := b[:n]
+		size -= 8
+		opcode := h & 0x0000FFFF
+		c.data = c.data[8:]
+		c.readAtLeast(int(size))
 
-		for len(d) > 0 {
-			if len(d) < 8 {
-				// XXX invalid header
-			}
+		d := c.data[:size]
+		c.data = c.data[size:]
 
-			sender := ObjectID(byteOrder.Uint32(d[0:4]))
-			h := byteOrder.Uint32(d[4:8])
-			size := (h & 0xFFFF0000) >> 16
-			opcode := h & 0x0000FFFF
-
-			if size < 8 {
-				// XXX invalid size
-			}
-			obj, ok := c.objects[sender]
-			if !ok {
-				// XXX unknown object
-			}
-			off := 8 // skip the header
-			evT := reflect.TypeOf(obj.Interface().Events[opcode])
-			ev := reflect.New(evT.Elem())
-			elem := ev.Elem()
-			for i := 0; i < elem.NumField(); i++ {
-				f := elem.Field(i)
-				fT := evT.Elem().Field(i)
-
-				var num uint32
-				if fT.Type != tUintptr {
-					num = byteOrder.Uint32(d[off:])
-					off += 4
-				}
-				switch fT.Type {
-				case tInt32:
-					f.SetInt(int64(num))
-				case tUint32:
-					f.SetUint(uint64(num))
-				case tFixed:
-					f.SetUint(uint64(num))
-				case tString:
-					s := string(d[off : off+int(num)-1])
-					f.SetString(s)
-					off += int(num)
-					off = (off + 3) & ^3
-				case tObject:
-					if evT.Elem().Field(i).Tag.Get("wl") == "new_id" {
-						v := reflect.New(f.Type().Elem()).Interface().(Object)
-						c.NewProxy(ObjectID(num), v)
-						c.objects[ObjectID(num)] = v
-					} else {
-						f.Set(reflect.ValueOf(c.objects[ObjectID(num)]))
-					}
-				case tUintptr:
-					scm, err := syscall.ParseSocketControlMessage(oob[:oobn])
-					if err != nil {
-						panic(err)
-					}
-					fds, err := syscall.ParseUnixRights(&scm[0])
-					if err != nil {
-						panic(err)
-					}
-					f.SetUint(uint64(fds[0]))
-				default:
-					// XXX support arrays and file descriptors
-					panic(fmt.Sprintf("internal error: unexpected type %v", fT.Type))
-				}
-			}
-			obj.GetProxy().pushEvent(ev.Interface().(Event))
-
-			d = d[size:]
+		obj, ok := c.objects[sender]
+		if !ok {
+			// XXX unknown object
 		}
+		off := 0
+		evT := reflect.TypeOf(obj.Interface().Events[opcode])
+		ev := reflect.New(evT.Elem())
+		elem := ev.Elem()
+		for i := 0; i < elem.NumField(); i++ {
+			f := elem.Field(i)
+			fT := evT.Elem().Field(i)
+
+			var num uint32
+			if fT.Type != tUintptr {
+				num = byteOrder.Uint32(d[off:])
+				off += 4
+			}
+			switch fT.Type {
+			case tInt32:
+				f.SetInt(int64(num))
+			case tUint32:
+				f.SetUint(uint64(num))
+			case tFixed:
+				f.SetUint(uint64(num))
+			case tString:
+				s := string(d[off : off+int(num)-1])
+				f.SetString(s)
+				off += int(num)
+				off = (off + 3) & ^3
+			case tObject:
+				if evT.Elem().Field(i).Tag.Get("wl") == "new_id" {
+					v := reflect.New(f.Type().Elem()).Interface().(Object)
+					c.NewProxy(ObjectID(num), v)
+					c.objects[ObjectID(num)] = v
+				} else {
+					f.Set(reflect.ValueOf(c.objects[ObjectID(num)]))
+				}
+			case tUintptr:
+				fd := c.fds[0]
+				copy(c.fds, c.fds[1:])
+				c.fds = c.fds[:len(c.fds)-1]
+				f.SetUint(uint64(fd))
+			case tArray:
+				// XXX copy out the data, probably
+				b := d[off : off+int(num)]
+				f.Set(reflect.ValueOf(b))
+				off += int(num)
+				off = (off + 3) &^ 3
+			default:
+				// XXX support arrays and file descriptors
+				panic(fmt.Sprintf("internal error: unexpected type %v", fT.Type))
+			}
+		}
+		obj.GetProxy().pushEvent(ev.Interface().(Event))
 	}
 }

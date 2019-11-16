@@ -165,8 +165,7 @@ func printRequests(iface elInterface) {
 					typ = "wayland.Object"
 				}
 			case "array":
-				// XXX
-				typ = "int32"
+				typ = "[]byte"
 			case "fd":
 				typ = "uintptr"
 			default:
@@ -254,8 +253,7 @@ func printEvents(iface elInterface) {
 			case "new_id":
 				typ = "*" + typeName(arg.Interface)
 			case "array":
-				// XXX
-				typ = "uintptr"
+				typ = "[]byte"
 			case "fd":
 				typ = "uintptr"
 			}
@@ -309,29 +307,32 @@ func printArgDocs(arg elArg) {
 }
 
 func main() {
-	f, err := os.OpenFile(os.Args[1], os.O_RDONLY, 0)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer f.Close()
-
-	var spec elProtocol
-	dec := xml.NewDecoder(f)
-	if err := dec.Decode(&spec); err != nil {
-		log.Fatal(err)
-	}
-
 	fmt.Println(`package pkg; import "honnef.co/go/wayland";`)
-	for _, iface := range spec.Interfaces {
-		printEnums(iface)
-		printInterface(iface)
-		printEvents(iface)
 
-		printDocs(iface.Description)
-		fmt.Printf("type %s struct { wayland.Proxy }\n", typeName(iface.Name))
+	for _, arg := range os.Args[1:] {
+		f, err := os.OpenFile(arg, os.O_RDONLY, 0)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
 
-		fmt.Printf("func (*%s) Interface() *wayland.Interface { return %s }\n", typeName(iface.Name), ifaceName(iface.Name))
+		var spec elProtocol
+		dec := xml.NewDecoder(f)
+		if err := dec.Decode(&spec); err != nil {
+			log.Fatal(err)
+		}
 
-		printRequests(iface)
+		for _, iface := range spec.Interfaces {
+			printEnums(iface)
+			printInterface(iface)
+			printEvents(iface)
+
+			printDocs(iface.Description)
+			fmt.Printf("type %s struct { wayland.Proxy }\n", typeName(iface.Name))
+
+			fmt.Printf("func (*%s) Interface() *wayland.Interface { return %s }\n", typeName(iface.Name), ifaceName(iface.Name))
+
+			printRequests(iface)
+		}
 	}
 }
