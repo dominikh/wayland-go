@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/xml"
 	"fmt"
+	"html/template"
 	"log"
 	"os"
 	"path/filepath"
@@ -123,79 +124,14 @@ func mapReserved(name string) string {
 	}
 }
 
-func printEnums(iface elInterface) {
-	typeName := typeName(iface.Name)
-
-	for _, enum := range iface.Enums {
-		printDocs(enum.Description)
-		fmt.Println("const (")
-
-		ename := typeName + exportedGoIdentifier(enum.Name)
-		for _, entry := range enum.Entries {
-			eename := ename + exportedGoIdentifier(entry.Name)
-			printEnumEntryDocs(entry)
-			fmt.Printf("%s = %s\n", eename, entry.Value)
-		}
-
-		fmt.Println(")")
-	}
-}
-
 func printRequests(iface elInterface) {
 	hasDestroy := false
 	for i, req := range iface.Requests {
-		printDocs(req.Description)
-
 		if req.Name == "destroy" {
 			hasDestroy = true
 		}
 
-		reqName := exportedGoIdentifier(req.Name)
-		fmt.Printf("func (obj *%s) %s(", typeName(iface.Name), reqName)
 		var ctor elArg
-		for _, arg := range req.Args {
-			var typ string
-			switch arg.Type {
-			case "int":
-				typ = "int32"
-			case "uint":
-				typ = "uint32"
-			case "fixed":
-				typ = "wayland.Fixed"
-			case "string":
-				typ = "string"
-			case "object":
-				typ = "wayland.Object"
-				if arg.Interface != "" {
-					typ = "*" + typeName(arg.Interface)
-				}
-			case "new_id":
-				ctor = arg
-				if ctor.Interface != "" {
-					continue
-				} else {
-					typ = "wayland.Object"
-				}
-			case "array":
-				typ = "[]byte"
-			case "fd":
-				typ = "uintptr"
-			default:
-				// XXX
-				panic(fmt.Sprintf("unsupported type %s", arg.Type))
-			}
-			fmt.Printf("%s %s, ", goIdentifier(arg.Name), typ)
-			if ctor.Name != "" && ctor.Interface == "" {
-				fmt.Printf("version uint32, ")
-			}
-		}
-		fmt.Printf(")")
-		if ctor.Interface != "" {
-			typ := "*" + typeName(ctor.Interface)
-			fmt.Print(typ)
-		}
-		fmt.Println("{")
-
 		if ctor.Name != "" {
 			if ctor.Interface != "" {
 				fmt.Printf("_ret := &%s{}; obj.Conn().NewProxy(0, _ret, obj.Queue());\n", typeName(ctor.Interface))
@@ -242,72 +178,7 @@ func wlprotoInterfaceName(iface elInterface) string {
 	return goIdentifier(name) + "Interface"
 }
 
-func wlprotoInterface(iface elInterface) {
-	fmt.Printf(`
-var %s = &wlproto.Interface{
-  Name: "%s",
-  Version: %s,
-  Requests: []wlproto.Request{
-`, wlprotoInterfaceName(iface), iface.Name, iface.Version)
-	for _, req := range iface.Requests {
-		wlprotoRequest(req)
-		fmt.Println(",")
-	}
-	fmt.Print(`
-},
-  Events: []wlproto.Event{
-`)
-
-	for _, ev := range iface.Events {
-		wlprotoEvent(ev)
-		fmt.Println(",")
-	}
-	fmt.Println(`
-  },
-}
-`)
-}
-
-func wlprotoRequest(req elRequest) {
-	if req.Since == "" {
-		req.Since = "1"
-	}
-	fmt.Printf(`wlproto.Request{
-		Name: %q,
-		Type: %q,
-		Since: %s,
-		Args: []wlproto.Arg{
-			`, req.Name, req.Type, req.Since)
-
-	for _, arg := range req.Args {
-		wlprotoArg(arg)
-		fmt.Println(",")
-	}
-	fmt.Print(`
-		},
-	}`)
-}
-
-func wlprotoEvent(ev elEvent) {
-	if ev.Since == "" {
-		ev.Since = "1"
-	}
-	fmt.Printf(`wlproto.Event{
-		Name: %q,
-		Since: %s,
-		Args: []wlproto.Arg{
-			`, ev.Name, ev.Since)
-
-	for _, arg := range ev.Args {
-		wlprotoArg(arg)
-		fmt.Println(",")
-	}
-	fmt.Print(`
-		},
-	}`)
-}
-
-func wlprotoArg(arg elArg) {
+func wlprotoArg(arg elArg) string {
 	var typ string
 	switch arg.Type {
 	case "int":
@@ -330,53 +201,58 @@ func wlprotoArg(arg elArg) {
 		panic("XXX")
 	}
 	if arg.Interface == "" {
-		fmt.Printf("{Type: wlproto.%s}", typ)
+		return fmt.Sprintf("{Type: wlproto.%s}", typ)
 	} else {
-		fmt.Printf("{Type: wlproto.%s, Aux: reflect.TypeOf((*%s)(nil))}", typ, typeName(arg.Interface))
+		return fmt.Sprintf("{Type: wlproto.%s, Aux: reflect.TypeOf((*%s)(nil))}", typ, typeName(arg.Interface))
 	}
 }
 
-func printEvents(iface elInterface) {
-	fmt.Printf("type %s struct {\n", eventsTypeName(iface))
-	for _, event := range iface.Events {
-		fmt.Printf("%s func(obj *%s, ", exportedGoIdentifier(event.Name), typeName(iface.Name))
-		for _, arg := range event.Args {
-			var typ string
-			switch arg.Type {
-			case "int":
-				typ = "int32"
-			case "uint":
-				typ = "uint32"
-			case "fixed":
-				typ = "wayland.Fixed"
-			case "string":
-				typ = "string"
-			case "object":
-				if arg.Interface != "" {
-					typ = "*" + typeName(arg.Interface)
-				} else {
-					typ = "wayland.Object"
-				}
-			case "new_id":
-				typ = "*" + typeName(arg.Interface)
-			case "array":
-				typ = "[]byte"
-			case "fd":
-				typ = "uintptr"
-			}
-			fmt.Printf("%s %s,", goIdentifier(arg.Name), typ)
+func goTypeFromWlType(typ string, iface string) string {
+	switch typ {
+	case "int":
+		return "int32"
+	case "uint":
+		return "uint32"
+	case "fixed":
+		return "wayland.Fixed"
+	case "string":
+		return "string"
+	case "object":
+		if iface != "" {
+			return "*" + typeName(iface)
+		} else {
+			return "wayland.Object"
 		}
-		fmt.Println(")")
+	case "new_id":
+		if iface != "" {
+			return "*" + typeName(iface)
+		} else {
+			return "wayland.Object"
+		}
+	case "array":
+		return "[]byte"
+	case "fd":
+		return "uintptr"
+	default:
+		return "UNKNOWN_TYPE_" + typ
 	}
-	fmt.Println("}")
+}
 
-	fmt.Printf("func (obj *%s) AddListener(listeners %s) {\n", typeName(iface.Name), eventsTypeName(iface))
-	fmt.Print("obj.Proxy.SetListeners(")
-	for _, event := range iface.Events {
-		fmt.Printf("listeners.%s,", exportedGoIdentifier(event.Name))
+func docString(docs elDescription) string {
+	text := docs.Text
+	if text == "" {
+		text = docs.Summary
+		if text == "" {
+			return ""
+		}
 	}
-	fmt.Println(")")
-	fmt.Println("}")
+
+	text = strings.TrimSpace(text)
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		lines[i] = "// " + strings.TrimSpace(line)
+	}
+	return strings.Join(lines, "\n")
 }
 
 func printDocs(docs elDescription) {
@@ -395,89 +271,201 @@ func printDocs(docs elDescription) {
 	}
 }
 
-func printEnumEntryDocs(entry elEntry) {
+func enumEntryDocString(entry elEntry) string {
 	if entry.Description.Text != "" || entry.Description.Summary != "" {
-		printDocs(entry.Description)
-		return
+		return docString(entry.Description)
 	}
 	if entry.Summary == "" {
-		return
+		return ""
 	}
-	fmt.Println("//", entry.Summary)
+	return "// " + entry.Summary
 }
 
-func printArgDocs(arg elArg) {
-	if arg.Description.Text != "" || arg.Description.Summary != "" {
-		printDocs(arg.Description)
-		return
-	}
-	if arg.Summary == "" {
-		return
-	}
-	fmt.Println("//", arg.Summary)
+var pkgTmpl = `// Code generated by wayland-scanner; DO NOT EDIT.
+//
+// Package pkg contains generated definitions of Wayland protocols.
+//
+// It was generated from the following files:
+{{- range .InputFiles }}
+// 	- {{ . }}
+{{- end }}
+package pkg
+
+import (
+{{- range .Imports }}
+	"{{ . }}"
+{{- end }}
+)
+
+var Interfaces = map[string]*wlproto.Interface{
+{{- range .Specs }}
+	{{- range .Interfaces }}
+		"{{ .Name }}": {{ WlprotoInterfaceName . }},
+	{{- end }}
+{{ end }}
 }
 
-func printInterfacesMap(specs []elProtocol) {
-	fmt.Println("var Interfaces = map[string]*wlproto.Interface{")
-	for _, spec := range specs {
-		for _, iface := range spec.Interfaces {
-			fmt.Printf("\"%s\": %s,\n", iface.Name, wlprotoInterfaceName(iface))
+var Requests = map[string]*wlproto.Request{
+{{- range $spec := .Specs }}
+	{{- range $iface := .Interfaces }}
+		{{- range $ireq, $req := .Requests }}
+			"{{ $iface.Name }}_{{ $req.Name }}": &{{ WlprotoInterfaceName $iface }}.Requests[{{ $ireq }}],
+		{{- end }}
+	{{ end }}
+{{ end }}
+}
+
+var Events = map[string]*wlproto.Event{
+{{- range $spec := .Specs }}
+	{{- range $iface := .Interfaces }}
+		{{- range $iev, $ev := .Events }}
+			"{{ $iface.Name }}_{{ $ev.Name }}": &{{ WlprotoInterfaceName $iface }}.Events[{{ $iev }}],
+		{{- end }}
+	{{ end }}
+{{ end }}
+}
+
+{{ range $spec := .Specs }}
+	{{ range $iface := $spec.Interfaces }}
+		{{ range $enum := $iface.Enums }}
+			{{ DocString .Description }}
+			const (
+			{{ $ename := print (TypeName $iface.Name) (ExportedGoIdentifier $enum.Name) }}
+			{{ range $entry := $enum.Entries }}
+				{{ EnumEntryDocString $entry }}
+				{{ print $ename (ExportedGoIdentifier $entry.Name)  }} = {{ $entry.Value }}
+			{{ end }}
+			)
+		{{ end }}
+
+		var {{ WlprotoInterfaceName $iface }} = &wlproto.Interface{
+			Name: "{{ $iface.Name }}",
+			Version: {{ $iface.Version }},
+			Requests: []wlproto.Request{
+				{{ range $req := $iface.Requests }}
+					{
+						Name: "{{ $req.Name }}",
+						Type: "{{ $req.Type }}",
+						Since: {{ if $req.Since }} {{ $req.Since }} {{ else }} 1 {{ end }},
+						Args: []wlproto.Arg{
+							{{ range $arg := $req.Args }}
+								{{ WlprotoArg $arg }},
+							{{ end }}
+						},
+					},
+				{{ end }}
+			},
+			Events: []wlproto.Event{
+				{{ range $ev := $iface.Events }}
+					{
+						Name: "{{ $ev.Name }}",
+						Since: {{ if $ev.Since }} {{ $ev.Since }} {{ else }} 1 {{ end }},
+						Args: []wlproto.Arg{
+							{{ range $arg := $ev.Args }}
+								{{ WlprotoArg $arg }},
+							{{ end }}
+						},
+					},
+				{{ end }}
+			},
 		}
-	}
-	fmt.Println("}")
-}
 
-func printMethodsMap(specs []elProtocol) {
-	fmt.Println("var Requests = map[string]*wlproto.Request{")
-	for _, spec := range specs {
-		for _, iface := range spec.Interfaces {
-			for i, req := range iface.Requests {
-				fmt.Printf("\"%s_%s\": &%s.Requests[%d],\n", iface.Name, req.Name, wlprotoInterfaceName(iface), i)
+		{{ DocString .Description }}
+		type {{ TypeName .Name }} struct { wayland.Proxy }
+
+		func (*{{ TypeName .Name }}) Interface() *wlproto.Interface { return {{ WlprotoInterfaceName . }} }
+
+		func (obj *{{ TypeName .Name }}) WithQueue(queue *wayland.EventQueue) *{{ TypeName .Name }} {
+			wobj := &{{ TypeName .Name }}{}
+			obj.Conn().NewWrapper(obj, wobj, queue)
+			return wobj
+		}
+
+		type {{ EventsTypeName $iface }} struct {
+			{{ range $event := $iface.Events }}
+				{{ ExportedGoIdentifier $event.Name }} func(obj *{{TypeName $iface.Name}},
+				{{- range $arg := $event.Args -}}
+					{{ GoIdentifier $arg.Name }} {{ GoTypeFromWlType $arg.Type $arg.Interface }},
+				{{- end -}}
+				)
+			{{ end }}
+		}
+
+		func (obj *{{ TypeName $iface.Name }}) AddListener(listeners {{ EventsTypeName $iface }}) {
+			obj.Proxy.SetListeners(
+				{{- range $event := $iface.Events -}}
+					listeners.{{  ExportedGoIdentifier $event.Name}},
+				{{- end -}}
+			)
+		}
+
+		{{ $hasDestroy := false }}
+		{{ range $ireq, $req := $iface.Requests }}
+			{{ if eq $req.Name "destroy" }}
+				{{ $hasDestroy = true }}
+			{{ end }}
+		    {{ $ctor := $.NoArg }}
+			{{ DocString $req.Description }}
+		    func (obj *{{ TypeName $iface.Name }}) {{ ExportedGoIdentifier $req.Name }}(
+				{{- range $arg := $req.Args -}}
+					{{- if eq $arg.Type "new_id" -}}
+						{{- $ctor = $arg -}}
+					{{- end -}}
+					{{- if (or (ne $arg.Type "new_id") (eq $arg.Interface "")) -}}
+						{{- GoIdentifier $arg.Name }} {{ GoTypeFromWlType $arg.Type $arg.Interface -}},
+						{{- if eq $arg.Type "new_id" -}}
+							version uint32,
+						{{- end -}}
+					{{- end -}}
+				{{- end -}}
+			) {{ if ne $ctor.Interface "" }} *{{ TypeName $ctor.Interface }} {{ end }} {
+				{{- if (and (ne $ctor.Name "") (ne $ctor.Interface "")) }}
+					_ret := &{{ TypeName $ctor.Interface }}{}
+					obj.Conn().NewProxy(0, _ret, obj.Queue())
+				{{ end }}
+				obj.Conn().SendRequest(obj, {{ $ireq }},
+					{{- range $arg := $req.Args -}}
+						{{- if eq $arg.Type "new_id" -}}
+							{{- if ne $ctor.Interface "" -}}
+								_ret
+							{{- else -}}
+								{{- GoIdentifier $ctor.Name}}.Interface().Name, version, {{ GoIdentifier $ctor.Name -}}
+							{{- end -}}
+						{{- else -}}
+							{{- GoIdentifier $arg.Name -}}
+						{{- end }},
+					{{- end -}}
+				)
+				{{ if eq $req.Type "destructor" }}
+					obj.Conn().Destroy(obj)
+				{{ end }}
+				{{ if ne $ctor.Interface "" }}
+					return _ret
+				{{ end }}
 			}
-		}
-	}
-	fmt.Println("}")
+		{{ end }}
+		{{ if not $hasDestroy }}
+			func (obj *{{ TypeName $iface.Name }}) Destroy() { obj.Conn().Destroy(obj) }
+		{{ end }}
+	{{ end }}
+{{ end }}
+`
 
-	fmt.Println("var Events = map[string]*wlproto.Event{")
-	for _, spec := range specs {
-		for _, iface := range spec.Interfaces {
-			for i, ev := range iface.Events {
-				fmt.Printf("\"%s_%s\": &%s.Events[%d],\n", iface.Name, ev.Name, wlprotoInterfaceName(iface), i)
-			}
-		}
-	}
-	fmt.Println("}")
+type tmplState struct {
+	InputFiles []string
+	Imports    []string
+	Specs      []elProtocol
+
+	NoArg elArg
 }
 
 func main() {
-	fmt.Print("// Code generated by wayland-scanner; DO NOT EDIT.\n\n")
-	imports := []string{
-		"reflect",
-		"honnef.co/go/wayland",
-		"honnef.co/go/wayland/wlproto",
-	}
-
-	fmt.Println("// Package pkg contains generated definitions of Wayland protocols.")
-	fmt.Println("//")
-	fmt.Println("// It was generated from the following files:")
-	for _, arg := range os.Args[1:] {
-		base := filepath.Base(arg)
-		fmt.Printf("// 	%s\n", base)
-	}
-	fmt.Println("package pkg")
-	fmt.Println("import (")
-	for _, imp := range imports {
-		fmt.Printf("%q\n", imp)
-	}
-	fmt.Println(")")
-
 	var specs []elProtocol
 	for _, arg := range os.Args[1:] {
 		f, err := os.OpenFile(arg, os.O_RDONLY, 0)
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer f.Close()
 
 		var spec elProtocol
 		dec := xml.NewDecoder(f)
@@ -485,31 +473,41 @@ func main() {
 			log.Fatal(err)
 		}
 		specs = append(specs, spec)
-
-		for _, iface := range spec.Interfaces {
-			printEnums(iface)
-
-			wlprotoInterface(iface)
-			printEvents(iface)
-
-			printDocs(iface.Description)
-			fmt.Printf("type %s struct { wayland.Proxy }\n", typeName(iface.Name))
-
-			fmt.Printf("func (*%s) Interface() *wlproto.Interface { return %s }\n",
-				typeName(iface.Name), wlprotoInterfaceName(iface))
-
-			fmt.Printf(`
-func (obj *%s) WithQueue(queue *wayland.EventQueue) *%s {
-  wobj := &%s{}
-  obj.Conn().NewWrapper(obj, wobj, queue)
-  return wobj
-}
-`, typeName(iface.Name), typeName(iface.Name), typeName(iface.Name))
-
-			printRequests(iface)
-		}
+		f.Close()
 	}
 
-	printInterfacesMap(specs)
-	printMethodsMap(specs)
+	var state tmplState
+	for _, arg := range os.Args[1:] {
+		state.InputFiles = append(state.InputFiles, filepath.Base(arg))
+	}
+	state.Imports = []string{
+		"reflect",
+		"honnef.co/go/wayland",
+		"honnef.co/go/wayland/wlproto",
+	}
+	state.Specs = specs
+
+	tmpl, err := template.New("pkg").Funcs(template.FuncMap{
+		"TypeName":             typeName,
+		"WlprotoInterfaceName": wlprotoInterfaceName,
+		"WlprotoArg":           wlprotoArg,
+		"DocString":            docString,
+		"EnumEntryDocString":   enumEntryDocString,
+		"ExportedGoIdentifier": exportedGoIdentifier,
+		"GoIdentifier":         goIdentifier,
+		"GoTypeFromWlType":     goTypeFromWlType,
+		"EventsTypeName":       eventsTypeName,
+	}).Parse(pkgTmpl)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := tmpl.Execute(os.Stderr, state); err != nil {
+		log.Fatal(err)
+	}
+
+	/*
+		for _, iface := range spec.Interfaces {
+			printRequests(iface)
+		}
+	*/
 }
