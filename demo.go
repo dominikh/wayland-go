@@ -4,6 +4,7 @@ package main
 
 import (
 	"log"
+	"math/rand"
 	"net"
 	"syscall"
 
@@ -39,42 +40,59 @@ type Buffer struct {
 	busy    bool
 }
 
+func roundtrip(dsp *demo.Display) {
+	queue := wayland.NewEventQueue()
+	cb := dsp.WithQueue(queue).Sync()
+	var done bool
+	cb.AddListener(demo.CallbackEvents{
+		Done: func(obj *demo.Callback, _ uint32) {
+			log.Println("callback fired")
+			done = true
+			cb.Destroy()
+		},
+	})
+	for !done {
+		queue.Dispatch()
+	}
+}
+
 func createDisplay(c *wayland.Conn) *Display {
 	dsp := &Display{
 		display: &demo.Display{},
 	}
-	c.NewProxy(1, dsp.display)
+	c.NewProxy(1, dsp.display, nil)
 	dsp.registry = dsp.display.GetRegistry()
+	dsp.registry.AddListener(demo.RegistryEvents{
+		Global: func(_ *demo.Registry, name uint32, iface string, version uint32) {
+			switch iface {
+			case "wl_compositor":
+				dsp.compositor = &demo.Compositor{}
+				c.NewProxy(0, dsp.compositor, nil)
+				dsp.registry.Bind(name, dsp.compositor, 1)
+			case "xdg_wm_base":
+				dsp.wmBase = &demo.XdgWmBase{}
+				c.NewProxy(0, dsp.wmBase, nil)
+				dsp.registry.Bind(name, dsp.wmBase, 1)
+			case "wl_shm":
+				dsp.shm = &demo.Shm{}
+				c.NewProxy(0, dsp.shm, nil)
+				dsp.registry.Bind(name, dsp.shm, 1)
+				dsp.shm.AddListener(demo.ShmEvents{
+					Format: func(obj *demo.Shm, format uint32) {
+						if format == demo.ShmFormatXrgb8888 {
+							dsp.hasXRGB = true
+						}
+					},
+				})
+			}
+		},
+	})
 
 	// make sure the server has processed all requests and sent out
 	// all events, so that we have the full initial state of the
 	// registry
-	dsp.display.Sync().NextEventPoll()
-
-	for {
-		ev, ok := dsp.registry.NextEvent()
-		if !ok {
-			break
-		}
-		g, ok := ev.(*demo.RegistryEventGlobal)
-		if !ok {
-			continue
-		}
-		switch g.Interface {
-		case "wl_compositor":
-			dsp.compositor = &demo.Compositor{}
-			c.NewProxy(0, dsp.compositor)
-			dsp.registry.Bind(g.Name, dsp.compositor, 1)
-		case "xdg_wm_base":
-			dsp.wmBase = &demo.XdgWmBase{}
-			c.NewProxy(0, dsp.wmBase)
-			dsp.registry.Bind(g.Name, dsp.wmBase, 1)
-		case "wl_shm":
-			dsp.shm = &demo.Shm{}
-			c.NewProxy(0, dsp.shm)
-			dsp.registry.Bind(g.Name, dsp.shm, 1)
-		}
-	}
+	roundtrip(dsp.display)
+	dsp.display.Queue().Dispatch()
 
 	if dsp.shm == nil {
 		log.Fatal("no SHM")
@@ -83,19 +101,9 @@ func createDisplay(c *wayland.Conn) *Display {
 		log.Fatal("no XDG")
 	}
 
-	// this time we wait for all initial events from Shm
-	dsp.display.Sync().NextEventPoll()
-
-	for {
-		ev, ok := dsp.shm.NextEvent()
-		if !ok {
-			break
-		}
-		f := ev.(*demo.ShmEventFormat)
-		if f.Format == demo.ShmFormatXrgb8888 {
-			dsp.hasXRGB = true
-		}
-	}
+	// this time make sure that we've processed all initial Shm events
+	roundtrip(dsp.display)
+	dsp.display.Queue().Dispatch()
 
 	if !dsp.hasXRGB {
 		log.Fatal("no XRGB8888")
@@ -113,19 +121,16 @@ func createWindow(dsp *Display, width, height int32) *Window {
 	}
 
 	win.xdgSurface = dsp.wmBase.GetXdgSurface(win.surface)
-	go func() {
-		for {
-			ev := win.xdgSurface.NextEventPoll()
-			if ev, ok := ev.(*demo.XdgSurfaceEventConfigure); ok {
-				win.xdgSurface.AckConfigure(ev.Serial)
-				if win.waitForConfigure {
-					redraw(win, nil, 0)
-					// XXX race condition
-					win.waitForConfigure = false
-				}
+	win.xdgSurface.AddListener(demo.XdgSurfaceEvents{
+		Configure: func(_ *demo.XdgSurface, serial uint32) {
+			win.xdgSurface.AckConfigure(serial)
+			if win.waitForConfigure {
+				redraw(win, nil, 0)
+				win.waitForConfigure = false
 			}
-		}
-	}()
+		},
+	})
+
 	win.xdgToplevel = win.xdgSurface.GetToplevel()
 	win.xdgToplevel.SetTitle("simple-shm")
 	win.surface.Commit()
@@ -136,23 +141,21 @@ func createWindow(dsp *Display, width, height int32) *Window {
 func redraw(win *Window, callback *demo.Callback, time uint32) {
 	buf := windowNextBuffer(win)
 
-	// for i := range buf.shmData {
-	// 	buf.shmData[i] = byte(rand.Int())
-	// }
+	for i := range buf.shmData {
+		buf.shmData[i] = byte(rand.Int())
+	}
 
 	win.surface.Attach(buf.buffer, 0, 0)
 	win.surface.Damage(0, 0, win.width, win.height)
 	if callback != nil {
-		// XXX destroy callback
-		// callback.Destroy()
+		callback.Destroy()
 	}
 	win.callback = win.surface.Frame()
-	go func() {
-		for {
-			ev := win.callback.NextEventPoll().(*demo.CallbackEventDone)
-			redraw(win, win.callback, ev.CallbackData)
-		}
-	}()
+	win.callback.AddListener(demo.CallbackEvents{
+		Done: func(_ *demo.Callback, data uint32) {
+			redraw(win, win.callback, data)
+		},
+	})
 	buf.busy = true
 	win.surface.Commit()
 }
@@ -171,8 +174,6 @@ func windowNextBuffer(win *Window) *Buffer {
 
 	if buf.buffer == nil {
 		createShmBuffer(win.display, buf, win.width, win.height, demo.ShmFormatXrgb8888)
-
-		// XXX memset
 	}
 
 	return buf
@@ -193,15 +194,11 @@ func createShmBuffer(dsp *Display, buf *Buffer, width, height int32, format uint
 
 	pool := dsp.shm.CreatePool(uintptr(fd), size)
 	buf.buffer = pool.CreateBuffer(0, width, height, stride, format)
-	go func() {
-		for {
-			ev := buf.buffer.NextEventPoll()
-			if _, ok := ev.(*demo.BufferEventRelease); ok {
-				// XXX race
-				buf.busy = false
-			}
-		}
-	}()
+	buf.buffer.AddListener(demo.BufferEvents{
+		Release: func(_ *demo.Buffer) {
+			buf.busy = false
+		},
+	})
 	pool.Destroy()
 	unix.Close(fd)
 
@@ -216,7 +213,8 @@ func main() {
 	c := wayland.NewConn(uc.(*net.UnixConn))
 
 	dsp := createDisplay(c)
-	window := createWindow(dsp, 250, 250)
-	_ = window
-	select {}
+	createWindow(dsp, 250, 250)
+	for {
+		dsp.display.Queue().Dispatch()
+	}
 }

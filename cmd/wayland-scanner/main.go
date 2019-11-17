@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/shurcooL/graphql/ident"
@@ -92,16 +93,12 @@ func typeName(name string) string {
 	return exportedGoIdentifier(name)
 }
 
-func ifaceName(name string) string {
-	name = strings.TrimPrefix(name, "wl_")
-	if len(name) == 0 {
-		// XXX
-	}
-	return goIdentifier(name) + "Interface"
-}
-
 func eventTypeName(iface elInterface, event elEvent) string {
 	return fmt.Sprintf("%sEvent%s", typeName(iface.Name), exportedGoIdentifier(event.Name))
+}
+
+func eventsTypeName(iface elInterface) string {
+	return fmt.Sprintf("%sEvents", typeName(iface.Name))
 }
 
 // XXX check for reserved names
@@ -113,7 +110,17 @@ func exportedGoIdentifier(name string) string {
 
 func goIdentifier(name string) string {
 	name = strings.TrimSuffix(name, "_")
-	return ident.Name(strings.Split(name, "_")).ToLowerCamelCase()
+	name = ident.Name(strings.Split(name, "_")).ToLowerCamelCase()
+	return mapReserved(name)
+}
+
+func mapReserved(name string) string {
+	switch name {
+	case "interface":
+		return "interface_"
+	default:
+		return name
+	}
 }
 
 func printEnums(iface elInterface) {
@@ -135,8 +142,13 @@ func printEnums(iface elInterface) {
 }
 
 func printRequests(iface elInterface) {
+	hasDestroy := false
 	for i, req := range iface.Requests {
 		printDocs(req.Description)
+
+		if req.Name == "destroy" {
+			hasDestroy = true
+		}
 
 		reqName := exportedGoIdentifier(req.Name)
 		fmt.Printf("func (obj *%s) %s(", typeName(iface.Name), reqName)
@@ -183,15 +195,14 @@ func printRequests(iface elInterface) {
 			fmt.Print(typ)
 		}
 		fmt.Println("{")
-		fmt.Printf("const %s_%s = %d\n", iface.Name, req.Name, i)
 
 		if ctor.Name != "" {
 			if ctor.Interface != "" {
-				fmt.Printf("_ret := &%s{}; obj.Conn().NewProxy(0, _ret);\n", typeName(ctor.Interface))
+				fmt.Printf("_ret := &%s{}; obj.Conn().NewProxy(0, _ret, obj.Queue());\n", typeName(ctor.Interface))
 			}
 		}
 
-		fmt.Printf("obj.Conn().SendRequest(obj, %s_%s, ", iface.Name, req.Name)
+		fmt.Printf("obj.Conn().SendRequest(obj, %d, ", i)
 		for _, arg := range req.Args {
 			switch arg.Type {
 			case "new_id":
@@ -207,32 +218,128 @@ func printRequests(iface elInterface) {
 		}
 		fmt.Println(")")
 
+		if req.Type == "destructor" {
+			fmt.Println("obj.Conn().Destroy(obj)")
+		}
+
 		if ctor.Interface != "" {
 			fmt.Println("return _ret")
 		}
 
 		fmt.Println("}")
 	}
+
+	if !hasDestroy {
+		fmt.Printf("\nfunc (obj *%s) Destroy() { obj.Conn().Destroy(obj) }\n", typeName(iface.Name))
+	}
 }
 
-func printInterface(iface elInterface) {
-	events := make([]string, len(iface.Events))
-	for i, event := range iface.Events {
-		events[i] = fmt.Sprintf("(*%s)(nil)", eventTypeName(iface, event))
+func wlprotoInterfaceName(iface elInterface) string {
+	name := strings.TrimPrefix(iface.Name, "wl_")
+	if len(name) == 0 {
+		// XXX
 	}
+	return goIdentifier(name) + "Interface"
+}
 
+func wlprotoInterface(iface elInterface) {
 	fmt.Printf(`
-var %s = &wayland.Interface{
+var %s = &wlproto.Interface{
   Name: "%s",
   Version: %s,
-  Events: []wayland.Event{%s},
+  Requests: []wlproto.Request{
+`, wlprotoInterfaceName(iface), iface.Name, iface.Version)
+	for _, req := range iface.Requests {
+		wlprotoRequest(req)
+		fmt.Println(",")
+	}
+	fmt.Print(`
+},
+  Events: []wlproto.Event{
+`)
+
+	for _, ev := range iface.Events {
+		wlprotoEvent(ev)
+		fmt.Println(",")
+	}
+	fmt.Println(`
+  },
 }
-`, ifaceName(iface.Name), iface.Name, iface.Version, strings.Join(events, ","))
+`)
+}
+
+func wlprotoRequest(req elRequest) {
+	if req.Since == "" {
+		req.Since = "1"
+	}
+	fmt.Printf(`wlproto.Request{
+		Name: %q,
+		Type: %q,
+		Since: %s,
+		Args: []wlproto.Arg{
+			`, req.Name, req.Type, req.Since)
+
+	for _, arg := range req.Args {
+		wlprotoArg(arg)
+		fmt.Println(",")
+	}
+	fmt.Print(`
+		},
+	}`)
+}
+
+func wlprotoEvent(ev elEvent) {
+	if ev.Since == "" {
+		ev.Since = "1"
+	}
+	fmt.Printf(`wlproto.Event{
+		Name: %q,
+		Since: %s,
+		Args: []wlproto.Arg{
+			`, ev.Name, ev.Since)
+
+	for _, arg := range ev.Args {
+		wlprotoArg(arg)
+		fmt.Println(",")
+	}
+	fmt.Print(`
+		},
+	}`)
+}
+
+func wlprotoArg(arg elArg) {
+	var typ string
+	switch arg.Type {
+	case "int":
+		typ = "ArgTypeInt"
+	case "uint":
+		typ = "ArgTypeUint"
+	case "fixed":
+		typ = "ArgTypeFixed"
+	case "string":
+		typ = "ArgTypeString"
+	case "object":
+		typ = "ArgTypeObject"
+	case "new_id":
+		typ = "ArgTypeNewID"
+	case "array":
+		typ = "ArgTypeArray"
+	case "fd":
+		typ = "ArgTypeFd"
+	default:
+		panic("XXX")
+	}
+	if arg.Interface == "" {
+		fmt.Printf("{Type: wlproto.%s}", typ)
+	} else {
+		fmt.Printf("{Type: wlproto.%s, Aux: reflect.TypeOf((*%s)(nil))}", typ, typeName(arg.Interface))
+	}
 }
 
 func printEvents(iface elInterface) {
+	fmt.Printf("type %s struct {\n", eventsTypeName(iface))
 	for _, event := range iface.Events {
-		fmt.Printf("type %s struct {\n", eventTypeName(iface, event))
+		fmt.Printf("%s func(obj *%s, ", exportedGoIdentifier(event.Name), typeName(iface.Name))
 		for _, arg := range event.Args {
 			var typ string
 			switch arg.Type {
@@ -257,15 +364,19 @@ func printEvents(iface elInterface) {
 			case "fd":
 				typ = "uintptr"
 			}
-			printArgDocs(arg)
-			fmt.Printf("%s %s", exportedGoIdentifier(arg.Name), typ)
-			if arg.Type == "new_id" {
-				fmt.Print(" `wl:\"new_id\"`")
-			}
-			fmt.Println()
+			fmt.Printf("%s %s,", goIdentifier(arg.Name), typ)
 		}
-		fmt.Printf("}\n\n")
+		fmt.Println(")")
 	}
+	fmt.Println("}")
+
+	fmt.Printf("func (obj *%s) AddListener(listeners %s) {\n", typeName(iface.Name), eventsTypeName(iface))
+	fmt.Print("obj.Proxy.SetListeners(")
+	for _, event := range iface.Events {
+		fmt.Printf("listeners.%s,", exportedGoIdentifier(event.Name))
+	}
+	fmt.Println(")")
+	fmt.Println("}")
 }
 
 func printDocs(docs elDescription) {
@@ -306,9 +417,61 @@ func printArgDocs(arg elArg) {
 	fmt.Println("//", arg.Summary)
 }
 
-func main() {
-	fmt.Println(`package pkg; import "honnef.co/go/wayland";`)
+func printInterfacesMap(specs []elProtocol) {
+	fmt.Println("var Interfaces = map[string]*wlproto.Interface{")
+	for _, spec := range specs {
+		for _, iface := range spec.Interfaces {
+			fmt.Printf("\"%s\": %s,\n", iface.Name, wlprotoInterfaceName(iface))
+		}
+	}
+	fmt.Println("}")
+}
 
+func printMethodsMap(specs []elProtocol) {
+	fmt.Println("var Requests = map[string]*wlproto.Request{")
+	for _, spec := range specs {
+		for _, iface := range spec.Interfaces {
+			for i, req := range iface.Requests {
+				fmt.Printf("\"%s_%s\": &%s.Requests[%d],\n", iface.Name, req.Name, wlprotoInterfaceName(iface), i)
+			}
+		}
+	}
+	fmt.Println("}")
+
+	fmt.Println("var Events = map[string]*wlproto.Event{")
+	for _, spec := range specs {
+		for _, iface := range spec.Interfaces {
+			for i, ev := range iface.Events {
+				fmt.Printf("\"%s_%s\": &%s.Events[%d],\n", iface.Name, ev.Name, wlprotoInterfaceName(iface), i)
+			}
+		}
+	}
+	fmt.Println("}")
+}
+
+func main() {
+	fmt.Print("// Code generated by wayland-scanner; DO NOT EDIT.\n\n")
+	imports := []string{
+		"reflect",
+		"honnef.co/go/wayland",
+		"honnef.co/go/wayland/wlproto",
+	}
+
+	fmt.Println("// Package pkg contains generated definitions of Wayland protocols.")
+	fmt.Println("//")
+	fmt.Println("// It was generated from the following files:")
+	for _, arg := range os.Args[1:] {
+		base := filepath.Base(arg)
+		fmt.Printf("// 	%s\n", base)
+	}
+	fmt.Println("package pkg")
+	fmt.Println("import (")
+	for _, imp := range imports {
+		fmt.Printf("%q\n", imp)
+	}
+	fmt.Println(")")
+
+	var specs []elProtocol
 	for _, arg := range os.Args[1:] {
 		f, err := os.OpenFile(arg, os.O_RDONLY, 0)
 		if err != nil {
@@ -321,18 +484,32 @@ func main() {
 		if err := dec.Decode(&spec); err != nil {
 			log.Fatal(err)
 		}
+		specs = append(specs, spec)
 
 		for _, iface := range spec.Interfaces {
 			printEnums(iface)
-			printInterface(iface)
+
+			wlprotoInterface(iface)
 			printEvents(iface)
 
 			printDocs(iface.Description)
 			fmt.Printf("type %s struct { wayland.Proxy }\n", typeName(iface.Name))
 
-			fmt.Printf("func (*%s) Interface() *wayland.Interface { return %s }\n", typeName(iface.Name), ifaceName(iface.Name))
+			fmt.Printf("func (*%s) Interface() *wlproto.Interface { return %s }\n",
+				typeName(iface.Name), wlprotoInterfaceName(iface))
+
+			fmt.Printf(`
+func (obj *%s) WithQueue(queue *wayland.EventQueue) *%s {
+  wobj := &%s{}
+  obj.Conn().NewWrapper(obj, wobj, queue)
+  return wobj
+}
+`, typeName(iface.Name), typeName(iface.Name), typeName(iface.Name))
 
 			printRequests(iface)
 		}
 	}
+
+	printInterfacesMap(specs)
+	printMethodsMap(specs)
 }
