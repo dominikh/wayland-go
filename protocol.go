@@ -111,6 +111,8 @@ type Conn struct {
 
 	data []byte
 	fds  []uintptr
+
+	sendBuf []byte
 }
 
 func NewConn(rw *net.UnixConn) *Conn {
@@ -142,13 +144,15 @@ func (c *Conn) NewProxy(id ObjectID, obj Object) {
 	c.objects[id] = obj
 }
 
+
 func (c *Conn) SendRequest(source Object, request int, args ...interface{}) {
 	// XXX we need to be aware of destructors and stop tracking
 	// objects that were destroyed
 
-	// OPT(dh): cache buf in Conn
-	buf := make([]byte, 8, 8+len(args)*4)
+	buf := c.sendBuf[:0]
+	buf = append(buf, 0, 0, 0, 0, 0, 0, 0, 0)
 	var scratch [4]byte
+
 	var fds []int
 	for _, arg := range args {
 		switch arg := arg.(type) {
@@ -172,7 +176,6 @@ func (c *Conn) SendRequest(source Object, request int, args ...interface{}) {
 				buf = append(buf, 0)
 			}
 			// XXX array
-			// XXX fd
 		case uintptr:
 			fds = append(fds, int(arg))
 		case Object:
@@ -189,9 +192,13 @@ func (c *Conn) SendRequest(source Object, request int, args ...interface{}) {
 
 	var oob []byte
 	if len(fds) > 0 {
+		// OPT(dh): we send file descriptors so rarely that allocating
+		// here isn't an issue.
 		oob = syscall.UnixRights(fds...)
 	}
 	c.rw.WriteMsgUnix(buf, oob, nil)
+
+	c.sendBuf = buf[:0]
 }
 
 func (c *Conn) read() {

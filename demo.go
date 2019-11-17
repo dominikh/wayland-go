@@ -4,7 +4,6 @@ package main
 
 import (
 	"log"
-	"math/rand"
 	"net"
 	"syscall"
 
@@ -136,12 +135,10 @@ func createWindow(dsp *Display, width, height int32) *Window {
 
 func redraw(win *Window, callback *demo.Callback, time uint32) {
 	buf := windowNextBuffer(win)
-	// XXX call paintPixels
-	// paintPixels(buf.shmData, 20, win.width, win.height, time)
 
-	for i := range buf.shmData {
-		buf.shmData[i] = byte(rand.Int())
-	}
+	// for i := range buf.shmData {
+	// 	buf.shmData[i] = byte(rand.Int())
+	// }
 
 	win.surface.Attach(buf.buffer, 0, 0)
 	win.surface.Damage(0, 0, win.width, win.height)
