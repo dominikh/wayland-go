@@ -1,5 +1,3 @@
-// +build ignore
-
 package main
 
 import (
@@ -9,16 +7,16 @@ import (
 	"syscall"
 
 	"golang.org/x/sys/unix"
-	"honnef.co/go/wayland"
-	"honnef.co/go/wayland/demo"
+	"honnef.co/go/wayland/wlclient"
+	"honnef.co/go/wayland/wlcore"
 )
 
 type Display struct {
-	display    *demo.Display
-	registry   *demo.Registry
-	compositor *demo.Compositor
-	shm        *demo.Shm
-	wmBase     *demo.XdgWmBase
+	display    *wlcore.Display
+	registry   *wlcore.Registry
+	compositor *wlcore.Compositor
+	shm        *wlcore.Shm
+	wmBase     *wlcore.XdgWmBase
 	hasXRGB    bool
 }
 
@@ -26,26 +24,26 @@ type Window struct {
 	display          *Display
 	width            int32
 	height           int32
-	surface          *demo.Surface
-	xdgSurface       *demo.XdgSurface
-	xdgToplevel      *demo.XdgToplevel
+	surface          *wlcore.Surface
+	xdgSurface       *wlcore.XdgSurface
+	xdgToplevel      *wlcore.XdgToplevel
 	waitForConfigure bool
 	buffers          [2]Buffer
-	callback         *demo.Callback
+	callback         *wlcore.Callback
 }
 
 type Buffer struct {
-	buffer  *demo.Buffer
+	buffer  *wlcore.Buffer
 	shmData []byte
 	busy    bool
 }
 
-func roundtrip(dsp *demo.Display) {
-	queue := wayland.NewEventQueue()
+func roundtrip(dsp *wlcore.Display) {
+	queue := wlclient.NewEventQueue()
 	cb := dsp.WithQueue(queue).Sync()
 	var done bool
-	cb.AddListener(demo.CallbackEvents{
-		Done: func(obj *demo.Callback, _ uint32) {
+	cb.AddListener(wlcore.CallbackEvents{
+		Done: func(obj *wlcore.Callback, _ uint32) {
 			log.Println("callback fired")
 			done = true
 			cb.Destroy()
@@ -56,30 +54,30 @@ func roundtrip(dsp *demo.Display) {
 	}
 }
 
-func createDisplay(c *wayland.Conn) *Display {
+func createDisplay(c *wlclient.Conn) *Display {
 	dsp := &Display{
-		display: &demo.Display{},
+		display: &wlcore.Display{},
 	}
 	c.NewProxy(1, dsp.display, nil)
 	dsp.registry = dsp.display.GetRegistry()
-	dsp.registry.AddListener(demo.RegistryEvents{
-		Global: func(_ *demo.Registry, name uint32, iface string, version uint32) {
+	dsp.registry.AddListener(wlcore.RegistryEvents{
+		Global: func(_ *wlcore.Registry, name uint32, iface string, version uint32) {
 			switch iface {
 			case "wl_compositor":
-				dsp.compositor = &demo.Compositor{}
+				dsp.compositor = &wlcore.Compositor{}
 				c.NewProxy(0, dsp.compositor, nil)
 				dsp.registry.Bind(name, dsp.compositor, 1)
 			case "xdg_wm_base":
-				dsp.wmBase = &demo.XdgWmBase{}
+				dsp.wmBase = &wlcore.XdgWmBase{}
 				c.NewProxy(0, dsp.wmBase, nil)
 				dsp.registry.Bind(name, dsp.wmBase, 1)
 			case "wl_shm":
-				dsp.shm = &demo.Shm{}
+				dsp.shm = &wlcore.Shm{}
 				c.NewProxy(0, dsp.shm, nil)
 				dsp.registry.Bind(name, dsp.shm, 1)
-				dsp.shm.AddListener(demo.ShmEvents{
-					Format: func(obj *demo.Shm, format uint32) {
-						if format == demo.ShmFormatXrgb8888 {
+				dsp.shm.AddListener(wlcore.ShmEvents{
+					Format: func(obj *wlcore.Shm, format uint32) {
+						if format == wlcore.ShmFormatXrgb8888 {
 							dsp.hasXRGB = true
 						}
 					},
@@ -121,8 +119,8 @@ func createWindow(dsp *Display, width, height int32) *Window {
 	}
 
 	win.xdgSurface = dsp.wmBase.GetXdgSurface(win.surface)
-	win.xdgSurface.AddListener(demo.XdgSurfaceEvents{
-		Configure: func(_ *demo.XdgSurface, serial uint32) {
+	win.xdgSurface.AddListener(wlcore.XdgSurfaceEvents{
+		Configure: func(_ *wlcore.XdgSurface, serial uint32) {
 			win.xdgSurface.AckConfigure(serial)
 			if win.waitForConfigure {
 				redraw(win, nil, 0)
@@ -138,7 +136,7 @@ func createWindow(dsp *Display, width, height int32) *Window {
 	return win
 }
 
-func redraw(win *Window, callback *demo.Callback, time uint32) {
+func redraw(win *Window, callback *wlcore.Callback, time uint32) {
 	buf := windowNextBuffer(win)
 
 	for i := range buf.shmData {
@@ -151,8 +149,8 @@ func redraw(win *Window, callback *demo.Callback, time uint32) {
 		callback.Destroy()
 	}
 	win.callback = win.surface.Frame()
-	win.callback.AddListener(demo.CallbackEvents{
-		Done: func(_ *demo.Callback, data uint32) {
+	win.callback.AddListener(wlcore.CallbackEvents{
+		Done: func(_ *wlcore.Callback, data uint32) {
 			redraw(win, win.callback, data)
 		},
 	})
@@ -173,7 +171,7 @@ func windowNextBuffer(win *Window) *Buffer {
 	}
 
 	if buf.buffer == nil {
-		createShmBuffer(win.display, buf, win.width, win.height, demo.ShmFormatXrgb8888)
+		createShmBuffer(win.display, buf, win.width, win.height, wlcore.ShmFormatXrgb8888)
 	}
 
 	return buf
@@ -194,8 +192,8 @@ func createShmBuffer(dsp *Display, buf *Buffer, width, height int32, format uint
 
 	pool := dsp.shm.CreatePool(uintptr(fd), size)
 	buf.buffer = pool.CreateBuffer(0, width, height, stride, format)
-	buf.buffer.AddListener(demo.BufferEvents{
-		Release: func(_ *demo.Buffer) {
+	buf.buffer.AddListener(wlcore.BufferEvents{
+		Release: func(_ *wlcore.Buffer) {
 			buf.busy = false
 		},
 	})
@@ -210,7 +208,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	c := wayland.NewConn(uc.(*net.UnixConn))
+	c := wlclient.NewConn(uc.(*net.UnixConn))
 
 	dsp := createDisplay(c)
 	createWindow(dsp, 250, 250)

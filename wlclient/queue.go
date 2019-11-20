@@ -1,4 +1,4 @@
-package wayland
+package wlclient
 
 import (
 	"reflect"

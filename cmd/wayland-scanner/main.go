@@ -214,20 +214,20 @@ func goTypeFromWlType(typ string, iface string) string {
 	case "uint":
 		return "uint32"
 	case "fixed":
-		return "wayland.Fixed"
+		return "wlclient.Fixed"
 	case "string":
 		return "string"
 	case "object":
 		if iface != "" {
 			return "*" + typeName(iface)
 		} else {
-			return "wayland.Object"
+			return "wlclient.Object"
 		}
 	case "new_id":
 		if iface != "" {
 			return "*" + typeName(iface)
 		} else {
-			return "wayland.Object"
+			return "wlclient.Object"
 		}
 	case "array":
 		return "[]byte"
@@ -371,11 +371,11 @@ var Events = map[string]*wlproto.Event{
 		}
 
 		{{ DocString .Description }}
-		type {{ TypeName .Name }} struct { wayland.Proxy }
+		type {{ TypeName .Name }} struct { wlclient.Proxy }
 
 		func (*{{ TypeName .Name }}) Interface() *wlproto.Interface { return {{ WlprotoInterfaceName . }} }
 
-		func (obj *{{ TypeName .Name }}) WithQueue(queue *wayland.EventQueue) *{{ TypeName .Name }} {
+		func (obj *{{ TypeName .Name }}) WithQueue(queue *wlclient.EventQueue) *{{ TypeName .Name }} {
 			wobj := &{{ TypeName .Name }}{}
 			obj.Conn().NewWrapper(obj, wobj, queue)
 			return wobj
@@ -482,7 +482,7 @@ func main() {
 	}
 	state.Imports = []string{
 		"reflect",
-		"honnef.co/go/wayland",
+		"honnef.co/go/wayland/wlclient",
 		"honnef.co/go/wayland/wlproto",
 	}
 	state.Specs = specs
@@ -501,13 +501,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := tmpl.Execute(os.Stderr, state); err != nil {
+	if err := tmpl.Execute(os.Stdout, state); err != nil {
 		log.Fatal(err)
 	}
-
-	/*
-		for _, iface := range spec.Interfaces {
-			printRequests(iface)
-		}
-	*/
 }

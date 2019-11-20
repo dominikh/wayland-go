@@ -1,4 +1,4 @@
-// Package wayland provides a low-level client and runtime for the
+// Package wlclient provides a low-level client and runtime for the
 // Wayland protocol.
 //
 // This package provides the interfaces and low-level functions for
@@ -33,7 +33,7 @@
 //
 // TODO explain code generation, mega-packages, and converting types
 // between packages.
-package wayland
+package wlclient
 
 import (
 	"encoding/binary"
