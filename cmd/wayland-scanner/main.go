@@ -439,6 +439,10 @@ func printSpecs(w io.Writer, state tmplState) {
 		for _, iface := range spec.Interfaces {
 			printInterface(iface)
 		}
+
+		if spec.Name == "wayland" {
+			fmt.Fprintln(w, "func GetDisplay(conn *wlclient.Conn) *Display { _ret := &Display{}; conn.NewProxy(1, _ret, nil); return _ret }")
+		}
 	}
 }
 

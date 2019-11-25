@@ -3530,6 +3530,12 @@ func (obj *Subsurface) SetDesync() {
 	obj.Conn().SendRequest(obj, 5)
 }
 
+func GetDisplay(conn *wlclient.Conn) *Display {
+	_ret := &Display{}
+	conn.NewProxy(1, _ret, nil)
+	return _ret
+}
+
 const (
 	// given wl_surface has another role
 	XdgWmBaseErrorRole = 0

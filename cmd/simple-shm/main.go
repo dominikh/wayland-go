@@ -56,9 +56,8 @@ func roundtrip(dsp *wlcore.Display) {
 
 func createDisplay(c *wlclient.Conn) *Display {
 	dsp := &Display{
-		display: &wlcore.Display{},
+		display: wlcore.GetDisplay(c),
 	}
-	c.NewProxy(1, dsp.display, nil)
 	dsp.registry = dsp.display.GetRegistry()
 	dsp.registry.AddListener(wlcore.RegistryEvents{
 		Global: func(_ *wlcore.Registry, name uint32, iface string, version uint32) {
