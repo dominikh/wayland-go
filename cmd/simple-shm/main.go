@@ -64,15 +64,12 @@ func createDisplay(c *wlclient.Conn) *Display {
 			switch iface {
 			case "wl_compositor":
 				dsp.compositor = &wlcore.Compositor{}
-				c.NewProxy(0, dsp.compositor, nil)
 				dsp.registry.Bind(name, dsp.compositor, 1)
 			case "xdg_wm_base":
 				dsp.wmBase = &wlcore.XdgWmBase{}
-				c.NewProxy(0, dsp.wmBase, nil)
 				dsp.registry.Bind(name, dsp.wmBase, 1)
 			case "wl_shm":
 				dsp.shm = &wlcore.Shm{}
-				c.NewProxy(0, dsp.shm, nil)
 				dsp.registry.Bind(name, dsp.shm, 1)
 				dsp.shm.AddListener(wlcore.ShmEvents{
 					Format: func(obj *wlcore.Shm, format uint32) {

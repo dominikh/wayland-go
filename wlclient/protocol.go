@@ -79,7 +79,6 @@ func init() {
 	}
 }
 
-
 // Proxy encapsulates all the internal state of client-side objects.
 //
 // Conceptually, a proxy is an ID that is associated with some
@@ -163,16 +162,11 @@ func (c *Conn) NewWrapper(obj Object, wrapper Object, queue *EventQueue) {
 }
 
 // NewProxy initialized the proxy in obj with the given id and queue.
-// If id is nil, a new ID will be allocated. If queue is nil, the
-// connection's default queue will be used.
+// If queue is nil, the connection's default queue will be used.
 func (c *Conn) NewProxy(id ObjectID, obj Object, queue *EventQueue) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if id == 0 {
-		c.maxID++
-		id = c.maxID
-	}
 	if queue == nil {
 		queue = c.defaultQueue
 	}
@@ -183,7 +177,9 @@ func (c *Conn) NewProxy(id ObjectID, obj Object, queue *EventQueue) {
 		eventHandlers: make([]interface{}, len(obj.Interface().Events)),
 		queue:         queue,
 	}
-	c.objects[id] = obj
+	if id != 0 {
+		c.objects[id] = obj
+	}
 }
 
 // Destroy destroys obj's proxy.
@@ -191,6 +187,8 @@ func (c *Conn) NewProxy(id ObjectID, obj Object, queue *EventQueue) {
 // This is a function provided for use by generated code.
 // User-level code should use generated destructors instead.
 func (c *Conn) Destroy(obj Object) {
+	// XXX there is a race here. user code may destroy an object while
+	// the server is still sending events for it
 	c.mu.Lock()
 	delete(c.objects, obj.ID())
 	c.mu.Unlock()
@@ -231,6 +229,23 @@ func (c *Conn) SendRequest(source Object, request int, args ...interface{}) {
 			fds = append(fds, int(arg))
 		case Object:
 			id := arg.ID()
+			if id == 0 {
+				c.maxID++
+				id = c.maxID
+
+				p := arg.GetProxy()
+				if p.conn == nil {
+					*p = Proxy{
+						id:            id,
+						conn:          c,
+						eventHandlers: make([]interface{}, len(arg.Interface().Events)),
+						queue:         c.defaultQueue,
+					}
+				} else {
+					p.id = id
+				}
+				c.objects[id] = arg
+			}
 			byteOrder.PutUint32(scratch[:], uint32(id))
 			buf = append(buf, scratch[:]...)
 		default:

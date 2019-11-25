@@ -373,11 +373,11 @@ func printSpecs(w io.Writer, state tmplState) {
 			for _, arg := range req.Args {
 				if arg.Type == "new_id" {
 					ctor = arg
-				}
-				if arg.Type != "new_id" {
+					if arg.Interface == "" {
+						fmt.Fprintf(w, "%s %s, version uint32,", goIdentifier(arg.Name), goTypeFromWlType(arg.Type, arg.Interface))
+					}
+				} else {
 					fmt.Fprintf(w, "%s %s,", goIdentifier(arg.Name), goTypeFromWlType(arg.Type, arg.Interface))
-				} else if arg.Interface == "" {
-					fmt.Fprintf(w, "%s %s, version uint32,", goIdentifier(arg.Name), goTypeFromWlType(arg.Type, arg.Interface))
 				}
 			}
 			fmt.Fprint(w, ")")
