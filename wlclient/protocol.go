@@ -35,6 +35,33 @@
 // between packages.
 package wlclient
 
+// Object deletion and races
+//
+// Wayland is an asynchronous protocol. The client may decide to
+// delete an object while the server is still sending events for it.
+// When we receive an event for a object we don't know about, we drop
+// the event.
+//
+// Some objects have methods that receive file descriptors and we need
+// to consume these fds even for events we're dropping. Thus, when
+// deleting such an object, we create a "zombie" that contains just
+// enough information to consume fds. It is assumed that any such
+// objects have a server-side destructor, so that we will eventually
+// receive a delete_id event and can remove the zombie.
+//
+// Objects can also be used as arguments in events, where the same
+// race can apply. Thus, when an argument fails to resolve to an
+// object, we set the argument to nil. This is arguably gnarly,
+// because every event handler will have to check that its arguments
+// aren't nil. I believe even libwayland-client gets this partially
+// wrong, because it only allows missing objects when zombies exist,
+// otherwise an EINVAL is produced.
+//
+// Some objects get destroyed by the server, not the client (most
+// famously wl_callback), so we mustn't create zombies if the object
+// has already been deleted, i.e. if our call to Destroy happens after
+// we have processed the server's Destroy.
+
 import (
 	"encoding/binary"
 	"fmt"
@@ -121,6 +148,13 @@ type event struct {
 	args []reflect.Value
 }
 
+// A zombie carries just enough state about deleted objects to
+// correctly discard events addressed to them.
+type zombie struct {
+	// the number of file descriptors, indexed by event index.
+	fds []int
+}
+
 type Conn struct {
 	debug        bool
 	defaultQueue *EventQueue
@@ -128,6 +162,7 @@ type Conn struct {
 	mu      sync.Mutex
 	rw      *net.UnixConn
 	objects map[ObjectID]Object
+	zombies map[ObjectID]zombie
 	maxID   ObjectID
 	sendBuf []byte
 
@@ -187,9 +222,30 @@ func (c *Conn) NewProxy(id ObjectID, obj Object, queue *EventQueue) {
 // This is a function provided for use by generated code.
 // User-level code should use generated destructors instead.
 func (c *Conn) Destroy(obj Object) {
-	// XXX there is a race here. user code may destroy an object while
-	// the server is still sending events for it
+	// OPT(dh): cache this computation
+	var z zombie
+	for i, ev := range obj.Interface().Events {
+		var fds int
+		for _, arg := range ev.Args {
+			if arg.Type == wlproto.ArgTypeFd {
+				fds++
+			}
+		}
+		if fds > 0 {
+			if z.fds == nil {
+				z.fds = make([]int, len(obj.Interface().Events))
+				z.fds[i] = fds
+			}
+		}
+	}
+
 	c.mu.Lock()
+	if z.fds != nil {
+		_, ok := c.objects[obj.ID()]
+		if ok {
+			c.zombies[obj.ID()] = z
+		}
+	}
 	delete(c.objects, obj.ID())
 	c.mu.Unlock()
 }
@@ -315,10 +371,20 @@ func (c *Conn) readLoop() {
 
 		c.mu.Lock()
 		obj, ok := c.objects[sender]
-		c.mu.Unlock()
 		if !ok {
-			// XXX unknown object
+			// unknown object ID. it's possible that the server sent
+			// us an event while we were destroying the object.
+			z, ok := c.zombies[sender]
+			if ok {
+				if fds := z.fds[opcode]; fds > 0 {
+					copy(c.fds, c.fds[fds:])
+					c.fds = c.fds[:len(c.fds)-fds]
+				}
+			}
+			c.mu.Unlock()
+			continue
 		}
+		c.mu.Unlock()
 		off := 0
 		sig := obj.Interface().Events[opcode].Args
 		args := make([]reflect.Value, len(sig))
@@ -342,8 +408,6 @@ func (c *Conn) readLoop() {
 				off = (off + 3) & ^3
 			case wlproto.ArgTypeObject:
 				c.mu.Lock()
-				// XXX is there a race here? can we be reading an
-				// object while user code is deleting it?
 				args[i] = reflect.ValueOf(c.objects[ObjectID(num)])
 				c.mu.Unlock()
 			case wlproto.ArgTypeArray:
@@ -369,6 +433,18 @@ func (c *Conn) readLoop() {
 			}
 		}
 
+		if sender == 1 && opcode == 1 {
+			// Special case for the delete_id event on wl_display.
+			// Primarily to clean up zombies, but this event may also
+			// fire without us having called a server-side destructor.
+			// For example, wl_callback gets destroyed by the server
+			// once it has fired.
+			c.mu.Lock()
+			id := ObjectID(args[0].Uint())
+			delete(c.objects, id)
+			delete(c.zombies, id)
+			c.mu.Unlock()
+		}
 		obj.GetProxy().queue.push(event{obj, int(opcode), args})
 	}
 }
