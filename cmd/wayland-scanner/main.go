@@ -391,7 +391,11 @@ func printSpecs(w io.Writer, state tmplState) {
 				fmt.Fprintln(w, "\tobj.Conn().NewProxy(0, _ret, obj.Queue())")
 			}
 
-			fmt.Fprintf(w, "\tobj.Conn().SendRequest(obj, %d, ", ireq)
+			if req.Type == "destructor" {
+				fmt.Fprintf(w, "\tobj.Conn().SendDestructor(obj, %d, ", ireq)
+			} else {
+				fmt.Fprintf(w, "\tobj.Conn().SendRequest(obj, %d, ", ireq)
+			}
 			for _, arg := range req.Args {
 				if arg.Type == "new_id" {
 					if ctor.Interface == "" {
@@ -404,10 +408,6 @@ func printSpecs(w io.Writer, state tmplState) {
 				}
 			}
 			fmt.Fprintln(w, ")")
-
-			if req.Type == "destructor" {
-				fmt.Fprintln(w, "\tobj.Conn().Destroy(obj)")
-			}
 
 			if ctor.Interface != "" {
 				fmt.Fprintln(w, "\treturn _ret")

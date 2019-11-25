@@ -222,6 +222,12 @@ func (c *Conn) NewProxy(id ObjectID, obj Object, queue *EventQueue) {
 // This is a function provided for use by generated code.
 // User-level code should use generated destructors instead.
 func (c *Conn) Destroy(obj Object) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.destroy(obj)
+}
+
+func (c *Conn) destroy(obj Object) {
 	// OPT(dh): cache this computation
 	var z zombie
 	for i, ev := range obj.Interface().Events {
@@ -239,7 +245,6 @@ func (c *Conn) Destroy(obj Object) {
 		}
 	}
 
-	c.mu.Lock()
 	if z.fds != nil {
 		_, ok := c.objects[obj.ID()]
 		if ok {
@@ -247,13 +252,22 @@ func (c *Conn) Destroy(obj Object) {
 		}
 	}
 	delete(c.objects, obj.ID())
-	c.mu.Unlock()
 }
 
 func (c *Conn) SendRequest(source Object, request int, args ...interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.sendRequest(source, request, args...)
+}
 
+func (c *Conn) SendDestructor(source Object, request int, args ...interface{}) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.sendRequest(source, request, args...)
+	c.destroy(source)
+}
+
+func (c *Conn) sendRequest(source Object, request int, args ...interface{}) {
 	buf := c.sendBuf[:0]
 	buf = append(buf, 0, 0, 0, 0, 0, 0, 0, 0)
 	var scratch [4]byte

@@ -580,8 +580,7 @@ func (obj *ShmPool) CreateBuffer(offset int32, width int32, height int32, stride
 // buffers that have been created from this pool
 // are gone.
 func (obj *ShmPool) Destroy() {
-	obj.Conn().SendRequest(obj, 1)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 1)
 }
 
 // This request will cause the server to remap the backing memory
@@ -929,8 +928,7 @@ func (obj *Buffer) AddListener(listeners BufferEvents) {
 //
 // For possible side-effects to a surface, see wl_surface.attach.
 func (obj *Buffer) Destroy() {
-	obj.Conn().SendRequest(obj, 0)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 0)
 }
 
 const (
@@ -1078,8 +1076,7 @@ func (obj *DataOffer) Receive(mimeType string, fd uintptr) {
 
 // Destroy the data offer.
 func (obj *DataOffer) Destroy() {
-	obj.Conn().SendRequest(obj, 2)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 2)
 }
 
 // Notifies the compositor that the drag destination successfully
@@ -1246,8 +1243,7 @@ func (obj *DataSource) Offer(mimeType string) {
 
 // Destroy the data source.
 func (obj *DataSource) Destroy() {
-	obj.Conn().SendRequest(obj, 1)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 1)
 }
 
 // Sets the actions that the source side client supports for this
@@ -1420,8 +1416,7 @@ func (obj *DataDevice) SetSelection(source *DataSource, serial uint32) {
 
 // This request destroys the data device.
 func (obj *DataDevice) Release() {
-	obj.Conn().SendRequest(obj, 2)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 2)
 }
 
 func (obj *DataDevice) Destroy() { obj.Conn().Destroy(obj) }
@@ -2113,8 +2108,7 @@ func (obj *Surface) AddListener(listeners SurfaceEvents) {
 
 // Deletes the surface and invalidates its object ID.
 func (obj *Surface) Destroy() {
-	obj.Conn().SendRequest(obj, 0)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 0)
 }
 
 // Set a buffer as the content of this surface.
@@ -2533,8 +2527,7 @@ func (obj *Seat) GetTouch() *Touch {
 // Using this request a client can tell the server that it is not going to
 // use the seat object anymore.
 func (obj *Seat) Release() {
-	obj.Conn().SendRequest(obj, 3)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 3)
 }
 
 func (obj *Seat) Destroy() { obj.Conn().Destroy(obj) }
@@ -2763,8 +2756,7 @@ func (obj *Pointer) SetCursor(serial uint32, surface *Surface, hotspotX int32, h
 // This request destroys the pointer proxy object, so clients must not call
 // wl_pointer_destroy() after using this request.
 func (obj *Pointer) Release() {
-	obj.Conn().SendRequest(obj, 1)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 1)
 }
 
 func (obj *Pointer) Destroy() { obj.Conn().Destroy(obj) }
@@ -2883,8 +2875,7 @@ func (obj *Keyboard) AddListener(listeners KeyboardEvents) {
 
 // release the keyboard object
 func (obj *Keyboard) Release() {
-	obj.Conn().SendRequest(obj, 0)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 0)
 }
 
 func (obj *Keyboard) Destroy() { obj.Conn().Destroy(obj) }
@@ -2996,8 +2987,7 @@ func (obj *Touch) AddListener(listeners TouchEvents) {
 
 // release the touch object
 func (obj *Touch) Release() {
-	obj.Conn().SendRequest(obj, 0)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 0)
 }
 
 func (obj *Touch) Destroy() { obj.Conn().Destroy(obj) }
@@ -3139,8 +3129,7 @@ func (obj *Output) AddListener(listeners OutputEvents) {
 // Using this request a client can tell the server that it is not going to
 // use the output object anymore.
 func (obj *Output) Release() {
-	obj.Conn().SendRequest(obj, 0)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 0)
 }
 
 func (obj *Output) Destroy() { obj.Conn().Destroy(obj) }
@@ -3204,8 +3193,7 @@ func (obj *Region) AddListener(listeners RegionEvents) {
 
 // Destroy the region.  This will invalidate the object ID.
 func (obj *Region) Destroy() {
-	obj.Conn().SendRequest(obj, 0)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 0)
 }
 
 // Add the specified rectangle to the region.
@@ -3287,8 +3275,7 @@ func (obj *Subcompositor) AddListener(listeners SubcompositorEvents) {
 // protocol object anymore. This does not affect any other
 // objects, wl_subsurface objects included.
 func (obj *Subcompositor) Destroy() {
-	obj.Conn().SendRequest(obj, 0)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 0)
 }
 
 // Create a sub-surface interface for the given surface, and
@@ -3441,8 +3428,7 @@ func (obj *Subsurface) AddListener(listeners SubsurfaceEvents) {
 // to the parent is deleted, and the wl_surface loses its role as
 // a sub-surface. The wl_surface is unmapped immediately.
 func (obj *Subsurface) Destroy() {
-	obj.Conn().SendRequest(obj, 0)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 0)
 }
 
 // This schedules a sub-surface position change.
@@ -3627,8 +3613,7 @@ func (obj *XdgWmBase) AddListener(listeners XdgWmBaseEvents) {
 // still alive created by this xdg_wm_base object instance is illegal
 // and will result in a protocol error.
 func (obj *XdgWmBase) Destroy() {
-	obj.Conn().SendRequest(obj, 0)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 0)
 }
 
 // Create a positioner object. A positioner object is used to position
@@ -3883,8 +3868,7 @@ func (obj *XdgPositioner) AddListener(listeners XdgPositionerEvents) {
 
 // Notify the compositor that the xdg_positioner will no longer be used.
 func (obj *XdgPositioner) Destroy() {
-	obj.Conn().SendRequest(obj, 0)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 0)
 }
 
 // Set the size of the surface that is to be positioned with the positioner
@@ -4089,8 +4073,7 @@ func (obj *XdgSurface) AddListener(listeners XdgSurfaceEvents) {
 // Destroy the xdg_surface object. An xdg_surface must only be destroyed
 // after its role object has been destroyed.
 func (obj *XdgSurface) Destroy() {
-	obj.Conn().SendRequest(obj, 0)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 0)
 }
 
 // This creates an xdg_toplevel object for the given xdg_surface and gives
@@ -4409,8 +4392,7 @@ func (obj *XdgToplevel) AddListener(listeners XdgToplevelEvents) {
 // This request destroys the role surface and unmaps the surface;
 // see "Unmapping" behavior in interface section for details.
 func (obj *XdgToplevel) Destroy() {
-	obj.Conn().SendRequest(obj, 0)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 0)
 }
 
 // Set the "parent" of this surface. This surface should be stacked
@@ -4823,8 +4805,7 @@ func (obj *XdgPopup) AddListener(listeners XdgPopupEvents) {
 // If this xdg_popup is not the "topmost" popup, a protocol error
 // will be sent.
 func (obj *XdgPopup) Destroy() {
-	obj.Conn().SendRequest(obj, 0)
-	obj.Conn().Destroy(obj)
+	obj.Conn().SendDestructor(obj, 0)
 }
 
 // This request makes the created popup take an explicit grab. An explicit
