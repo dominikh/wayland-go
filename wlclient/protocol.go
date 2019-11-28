@@ -53,9 +53,7 @@ package wlclient
 // race can apply. Thus, when an argument fails to resolve to an
 // object, we set the argument to nil. This is arguably gnarly,
 // because every event handler will have to check that its arguments
-// aren't nil. I believe even libwayland-client gets this partially
-// wrong, because it only allows missing objects when zombies exist,
-// otherwise an EINVAL is produced.
+// aren't nil.
 //
 // Some objects get destroyed by the server, not the client (most
 // famously wl_callback), so we mustn't create zombies if the object
@@ -148,12 +146,15 @@ type event struct {
 	args []reflect.Value
 }
 
-// A zombie carries just enough state about deleted objects to
-// correctly discard events addressed to them.
-type zombie struct {
-	// the number of file descriptors, indexed by event index.
-	fds []int
+type object struct {
+	kind uint8
+	fds  []int
+	obj  Object
 }
+
+const (
+	objectKindZombie = iota + 1
+)
 
 type Conn struct {
 	debug        bool
@@ -161,8 +162,7 @@ type Conn struct {
 
 	mu      sync.Mutex
 	rw      *net.UnixConn
-	objects map[ObjectID]Object
-	zombies map[ObjectID]zombie
+	objects map[ObjectID]object
 	maxID   ObjectID
 	sendBuf []byte
 
@@ -173,7 +173,7 @@ type Conn struct {
 func NewConn(rw *net.UnixConn) *Conn {
 	c := &Conn{
 		rw:           rw,
-		objects:      map[ObjectID]Object{},
+		objects:      map[ObjectID]object{},
 		debug:        true,
 		defaultQueue: NewEventQueue(),
 		maxID:        1,
@@ -213,7 +213,7 @@ func (c *Conn) NewProxy(id ObjectID, obj Object, queue *EventQueue) {
 		queue:         queue,
 	}
 	if id != 0 {
-		c.objects[id] = obj
+		c.objects[id] = object{obj: obj}
 	}
 }
 
@@ -224,47 +224,48 @@ func (c *Conn) NewProxy(id ObjectID, obj Object, queue *EventQueue) {
 func (c *Conn) Destroy(obj Object) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.destroy(obj)
+	delete(c.objects, obj.ID())
 }
 
-func (c *Conn) destroy(obj Object) {
+func (c *Conn) SendDestructor(obj Object, request int, args ...interface{}) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.sendRequest(obj, request, args...)
+
+	if _, ok := c.objects[obj.ID()]; !ok {
+		// the server has already destroyed the object before we
+		// decided to destroy it
+		return
+	}
+
 	// OPT(dh): cache this computation
-	var z zombie
+	var fds []int
 	for i, ev := range obj.Interface().Events {
-		var fds int
+		var nfds int
 		for _, arg := range ev.Args {
 			if arg.Type == wlproto.ArgTypeFd {
-				fds++
+				nfds++
 			}
 		}
-		if fds > 0 {
-			if z.fds == nil {
-				z.fds = make([]int, len(obj.Interface().Events))
-				z.fds[i] = fds
+		if nfds > 0 {
+			if fds == nil {
+				fds = make([]int, len(obj.Interface().Events))
+				fds[i] = nfds
 			}
 		}
 	}
 
-	if z.fds != nil {
-		_, ok := c.objects[obj.ID()]
-		if ok {
-			c.zombies[obj.ID()] = z
-		}
+	c.objects[obj.ID()] = object{
+		kind: objectKindZombie,
+		fds:  fds,
+		obj:  obj,
 	}
-	delete(c.objects, obj.ID())
 }
 
 func (c *Conn) SendRequest(source Object, request int, args ...interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.sendRequest(source, request, args...)
-}
-
-func (c *Conn) SendDestructor(source Object, request int, args ...interface{}) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.sendRequest(source, request, args...)
-	c.destroy(source)
 }
 
 func (c *Conn) sendRequest(source Object, request int, args ...interface{}) {
@@ -314,7 +315,7 @@ func (c *Conn) sendRequest(source Object, request int, args ...interface{}) {
 				} else {
 					p.id = id
 				}
-				c.objects[id] = arg
+				c.objects[id] = object{obj: arg}
 			}
 			byteOrder.PutUint32(scratch[:], uint32(id))
 			buf = append(buf, scratch[:]...)
@@ -384,20 +385,24 @@ func (c *Conn) readLoop() {
 		c.data = c.data[size:]
 
 		c.mu.Lock()
-		obj, ok := c.objects[sender]
+		objw, ok := c.objects[sender]
 		if !ok {
-			// unknown object ID. it's possible that the server sent
-			// us an event while we were destroying the object.
-			z, ok := c.zombies[sender]
-			if ok {
-				if fds := z.fds[opcode]; fds > 0 {
-					copy(c.fds, c.fds[fds:])
-					c.fds = c.fds[:len(c.fds)-fds]
-				}
+			// we don't know the object, we don't even have a zombie
+			// for it -> ignore the message.
+			c.mu.Unlock()
+			continue
+		}
+		if objw.kind == objectKindZombie {
+			// this object has been deleted, see if we need to consume
+			// fds.
+			if fds := objw.fds[opcode]; fds > 0 {
+				copy(c.fds, c.fds[fds:])
+				c.fds = c.fds[:len(c.fds)-fds]
 			}
 			c.mu.Unlock()
 			continue
 		}
+		obj := objw.obj
 		c.mu.Unlock()
 		off := 0
 		sig := obj.Interface().Events[opcode].Args
@@ -436,11 +441,12 @@ func (c *Conn) readLoop() {
 				c.fds = c.fds[:len(c.fds)-1]
 				args[i] = reflect.ValueOf(uintptr(fd))
 			case wlproto.ArgTypeNewID:
-				// new_id
+				// XXX verify that the new ID isn't already in use
+				// XXX verify that the new ID is in the server's ID space
 				v := reflect.New(arg.Aux.Elem()).Interface().(Object)
 				c.NewProxy(ObjectID(num), v, obj.Queue())
 				c.mu.Lock()
-				c.objects[ObjectID(num)] = v
+				c.objects[ObjectID(num)] = object{obj: v}
 				c.mu.Unlock()
 			default:
 				panic("unreachable")
@@ -456,7 +462,6 @@ func (c *Conn) readLoop() {
 			c.mu.Lock()
 			id := ObjectID(args[0].Uint())
 			delete(c.objects, id)
-			delete(c.zombies, id)
 			c.mu.Unlock()
 		}
 		obj.GetProxy().queue.push(event{obj, int(opcode), args})
