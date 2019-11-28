@@ -8,15 +8,16 @@ import (
 
 	"golang.org/x/sys/unix"
 	"honnef.co/go/wayland/wlclient"
-	"honnef.co/go/wayland/wlcore"
+	"honnef.co/go/wayland/protocols/wayland"
+	"honnef.co/go/wayland/protocols/xdg-shell"
 )
 
 type Display struct {
-	display    *wlcore.Display
-	registry   *wlcore.Registry
-	compositor *wlcore.Compositor
-	shm        *wlcore.Shm
-	wmBase     *wlcore.XdgWmBase
+	display    *wayland.Display
+	registry   *wayland.Registry
+	compositor *wayland.Compositor
+	shm        *wayland.Shm
+	wmBase     *xdgShell.WmBase
 	hasXRGB    bool
 }
 
@@ -24,26 +25,26 @@ type Window struct {
 	display          *Display
 	width            int32
 	height           int32
-	surface          *wlcore.Surface
-	xdgSurface       *wlcore.XdgSurface
-	xdgToplevel      *wlcore.XdgToplevel
+	surface          *wayland.Surface
+	xdgSurface       *xdgShell.Surface
+	xdgToplevel      *xdgShell.Toplevel
 	waitForConfigure bool
 	buffers          [2]Buffer
-	callback         *wlcore.Callback
+	callback         *wayland.Callback
 }
 
 type Buffer struct {
-	buffer  *wlcore.Buffer
+	buffer  *wayland.Buffer
 	shmData []byte
 	busy    bool
 }
 
-func roundtrip(dsp *wlcore.Display) {
+func roundtrip(dsp *wayland.Display) {
 	queue := wlclient.NewEventQueue()
 	cb := dsp.WithQueue(queue).Sync()
 	var done bool
-	cb.AddListener(wlcore.CallbackEvents{
-		Done: func(obj *wlcore.Callback, _ uint32) {
+	cb.AddListener(wayland.CallbackEvents{
+		Done: func(obj *wayland.Callback, _ uint32) {
 			log.Println("callback fired")
 			done = true
 			cb.Destroy()
@@ -56,24 +57,24 @@ func roundtrip(dsp *wlcore.Display) {
 
 func createDisplay(c *wlclient.Conn) *Display {
 	dsp := &Display{
-		display: wlcore.GetDisplay(c),
+		display: wayland.GetDisplay(c),
 	}
 	dsp.registry = dsp.display.GetRegistry()
-	dsp.registry.AddListener(wlcore.RegistryEvents{
-		Global: func(_ *wlcore.Registry, name uint32, iface string, version uint32) {
+	dsp.registry.AddListener(wayland.RegistryEvents{
+		Global: func(_ *wayland.Registry, name uint32, iface string, version uint32) {
 			switch iface {
 			case "wl_compositor":
-				dsp.compositor = &wlcore.Compositor{}
+				dsp.compositor = &wayland.Compositor{}
 				dsp.registry.Bind(name, dsp.compositor, 1)
 			case "xdg_wm_base":
-				dsp.wmBase = &wlcore.XdgWmBase{}
+				dsp.wmBase = &xdgShell.WmBase{}
 				dsp.registry.Bind(name, dsp.wmBase, 1)
 			case "wl_shm":
-				dsp.shm = &wlcore.Shm{}
+				dsp.shm = &wayland.Shm{}
 				dsp.registry.Bind(name, dsp.shm, 1)
-				dsp.shm.AddListener(wlcore.ShmEvents{
-					Format: func(obj *wlcore.Shm, format uint32) {
-						if format == wlcore.ShmFormatXrgb8888 {
+				dsp.shm.AddListener(wayland.ShmEvents{
+					Format: func(obj *wayland.Shm, format uint32) {
+						if format == wayland.ShmFormatXrgb8888 {
 							dsp.hasXRGB = true
 						}
 					},
@@ -115,8 +116,8 @@ func createWindow(dsp *Display, width, height int32) *Window {
 	}
 
 	win.xdgSurface = dsp.wmBase.GetXdgSurface(win.surface)
-	win.xdgSurface.AddListener(wlcore.XdgSurfaceEvents{
-		Configure: func(_ *wlcore.XdgSurface, serial uint32) {
+	win.xdgSurface.AddListener(xdgShell.SurfaceEvents{
+		Configure: func(_ *xdgShell.Surface, serial uint32) {
 			win.xdgSurface.AckConfigure(serial)
 			if win.waitForConfigure {
 				redraw(win, nil, 0)
@@ -132,7 +133,7 @@ func createWindow(dsp *Display, width, height int32) *Window {
 	return win
 }
 
-func redraw(win *Window, callback *wlcore.Callback, time uint32) {
+func redraw(win *Window, callback *wayland.Callback, time uint32) {
 	buf := windowNextBuffer(win)
 
 	for i := range buf.shmData {
@@ -145,8 +146,8 @@ func redraw(win *Window, callback *wlcore.Callback, time uint32) {
 		callback.Destroy()
 	}
 	win.callback = win.surface.Frame()
-	win.callback.AddListener(wlcore.CallbackEvents{
-		Done: func(_ *wlcore.Callback, data uint32) {
+	win.callback.AddListener(wayland.CallbackEvents{
+		Done: func(_ *wayland.Callback, data uint32) {
 			redraw(win, win.callback, data)
 		},
 	})
@@ -167,7 +168,7 @@ func windowNextBuffer(win *Window) *Buffer {
 	}
 
 	if buf.buffer == nil {
-		createShmBuffer(win.display, buf, win.width, win.height, wlcore.ShmFormatXrgb8888)
+		createShmBuffer(win.display, buf, win.width, win.height, wayland.ShmFormatXrgb8888)
 	}
 
 	return buf
@@ -188,8 +189,8 @@ func createShmBuffer(dsp *Display, buf *Buffer, width, height int32, format uint
 
 	pool := dsp.shm.CreatePool(uintptr(fd), size)
 	buf.buffer = pool.CreateBuffer(0, width, height, stride, format)
-	buf.buffer.AddListener(wlcore.BufferEvents{
-		Release: func(_ *wlcore.Buffer) {
+	buf.buffer.AddListener(wayland.BufferEvents{
+		Release: func(_ *wayland.Buffer) {
 			buf.busy = false
 		},
 	})

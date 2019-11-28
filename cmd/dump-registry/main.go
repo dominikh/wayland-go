@@ -5,15 +5,15 @@ import (
 	"net"
 
 	"honnef.co/go/wayland/wlclient"
-	"honnef.co/go/wayland/wlcore"
+	"honnef.co/go/wayland/protocols/wayland"
 )
 
-func roundtrip(dsp *wlcore.Display) {
+func roundtrip(dsp *wayland.Display) {
 	queue := wlclient.NewEventQueue()
 	cb := dsp.WithQueue(queue).Sync()
 	var done bool
-	cb.AddListener(wlcore.CallbackEvents{
-		Done: func(obj *wlcore.Callback, _ uint32) {
+	cb.AddListener(wayland.CallbackEvents{
+		Done: func(obj *wayland.Callback, _ uint32) {
 			log.Println("callback fired")
 			done = true
 			cb.Destroy()
@@ -33,12 +33,12 @@ func main() {
 
 	// ID 1 is "special" and refers to the Display. no nice API for it
 	// yet, hence explicit call to NewProxy.
-	dsp := &wlcore.Display{}
+	dsp := &wayland.Display{}
 	c.NewProxy(1, dsp, nil)
 
 	registry := dsp.GetRegistry()
-	registry.AddListener(wlcore.RegistryEvents{
-		Global: func(obj *wlcore.Registry, name uint32, interface_ string, version uint32) {
+	registry.AddListener(wayland.RegistryEvents{
+		Global: func(obj *wayland.Registry, name uint32, interface_ string, version uint32) {
 			log.Println(obj, name, interface_, version)
 		},
 	})
