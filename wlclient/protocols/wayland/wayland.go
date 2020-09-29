@@ -6,8 +6,11 @@ package wayland
 import (
 	"honnef.co/go/wayland/wlclient"
 	"honnef.co/go/wayland/wlproto"
+	"honnef.co/go/wayland/wlshared"
 	"reflect"
 )
+
+var _ wlshared.Fixed
 
 var interfaceNames = map[string]string{
 	"wl_display":             "Display",
@@ -186,15 +189,17 @@ var Events = map[string]*wlproto.Event{
 
 // These errors are global and can be emitted in response to any
 // server request.
+type DisplayError uint32
+
 const (
 	// server couldn't find object
-	DisplayErrorInvalidObject = 0
+	DisplayErrorInvalidObject DisplayError = 0
 	// method doesn't exist on the specified interface or malformed request
-	DisplayErrorInvalidMethod = 1
+	DisplayErrorInvalidMethod DisplayError = 1
 	// server is out of memory
-	DisplayErrorNoMemory = 2
+	DisplayErrorNoMemory DisplayError = 2
 	// implementation error in compositor
-	DisplayErrorImplementation = 3
+	DisplayErrorImplementation DisplayError = 3
 )
 
 var displayInterface = &wlproto.Interface{
@@ -489,7 +494,7 @@ var shmPoolInterface = &wlproto.Interface{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(ShmFormat(0))},
 			},
 		},
 		{
@@ -545,7 +550,7 @@ func (obj *ShmPool) AddListener(listeners ShmPoolEvents) {
 // A buffer will keep a reference to the pool it was created from
 // so it is valid to destroy the pool immediately after creating
 // a buffer from it.
-func (obj *ShmPool) CreateBuffer(offset int32, width int32, height int32, stride int32, format uint32) *Buffer {
+func (obj *ShmPool) CreateBuffer(offset int32, width int32, height int32, stride int32, format ShmFormat) *Buffer {
 	_ret := &Buffer{}
 	obj.Conn().NewProxy(0, _ret, obj.Queue())
 	obj.Conn().SendRequest(obj, 0, _ret, offset, width, height, stride, format)
@@ -570,13 +575,15 @@ func (obj *ShmPool) Resize(size int32) {
 }
 
 // These errors can be emitted in response to wl_shm requests.
+type ShmError uint32
+
 const (
 	// buffer format is not known
-	ShmErrorInvalidFormat = 0
+	ShmErrorInvalidFormat ShmError = 0
 	// invalid size or stride during pool or buffer creation
-	ShmErrorInvalidStride = 1
+	ShmErrorInvalidStride ShmError = 1
 	// mmapping the file descriptor failed
-	ShmErrorInvalidFd = 2
+	ShmErrorInvalidFd ShmError = 2
 )
 
 // This describes the memory layout of an individual pixel.
@@ -588,207 +595,199 @@ const (
 // The drm format codes match the macros defined in drm_fourcc.h, except
 // argb8888 and xrgb8888. The formats actually supported by the compositor
 // will be reported by the format event.
+type ShmFormat uint32
+
 const (
 	// 32-bit ARGB format, [31:0] A:R:G:B 8:8:8:8 little endian
-	ShmFormatArgb8888 = 0
+	ShmFormatArgb8888 ShmFormat = 0
 	// 32-bit RGB format, [31:0] x:R:G:B 8:8:8:8 little endian
-	ShmFormatXrgb8888 = 1
+	ShmFormatXrgb8888 ShmFormat = 1
 	// 8-bit color index format, [7:0] C
-	ShmFormatC8 = 0x20203843
+	ShmFormatC8 ShmFormat = 0x20203843
 	// 8-bit RGB format, [7:0] R:G:B 3:3:2
-	ShmFormatRgb332 = 0x38424752
+	ShmFormatRgb332 ShmFormat = 0x38424752
 	// 8-bit BGR format, [7:0] B:G:R 2:3:3
-	ShmFormatBgr233 = 0x38524742
+	ShmFormatBgr233 ShmFormat = 0x38524742
 	// 16-bit xRGB format, [15:0] x:R:G:B 4:4:4:4 little endian
-	ShmFormatXrgb4444 = 0x32315258
+	ShmFormatXrgb4444 ShmFormat = 0x32315258
 	// 16-bit xBGR format, [15:0] x:B:G:R 4:4:4:4 little endian
-	ShmFormatXbgr4444 = 0x32314258
+	ShmFormatXbgr4444 ShmFormat = 0x32314258
 	// 16-bit RGBx format, [15:0] R:G:B:x 4:4:4:4 little endian
-	ShmFormatRgbx4444 = 0x32315852
+	ShmFormatRgbx4444 ShmFormat = 0x32315852
 	// 16-bit BGRx format, [15:0] B:G:R:x 4:4:4:4 little endian
-	ShmFormatBgrx4444 = 0x32315842
+	ShmFormatBgrx4444 ShmFormat = 0x32315842
 	// 16-bit ARGB format, [15:0] A:R:G:B 4:4:4:4 little endian
-	ShmFormatArgb4444 = 0x32315241
+	ShmFormatArgb4444 ShmFormat = 0x32315241
 	// 16-bit ABGR format, [15:0] A:B:G:R 4:4:4:4 little endian
-	ShmFormatAbgr4444 = 0x32314241
+	ShmFormatAbgr4444 ShmFormat = 0x32314241
 	// 16-bit RBGA format, [15:0] R:G:B:A 4:4:4:4 little endian
-	ShmFormatRgba4444 = 0x32314152
+	ShmFormatRgba4444 ShmFormat = 0x32314152
 	// 16-bit BGRA format, [15:0] B:G:R:A 4:4:4:4 little endian
-	ShmFormatBgra4444 = 0x32314142
+	ShmFormatBgra4444 ShmFormat = 0x32314142
 	// 16-bit xRGB format, [15:0] x:R:G:B 1:5:5:5 little endian
-	ShmFormatXrgb1555 = 0x35315258
+	ShmFormatXrgb1555 ShmFormat = 0x35315258
 	// 16-bit xBGR 1555 format, [15:0] x:B:G:R 1:5:5:5 little endian
-	ShmFormatXbgr1555 = 0x35314258
+	ShmFormatXbgr1555 ShmFormat = 0x35314258
 	// 16-bit RGBx 5551 format, [15:0] R:G:B:x 5:5:5:1 little endian
-	ShmFormatRgbx5551 = 0x35315852
+	ShmFormatRgbx5551 ShmFormat = 0x35315852
 	// 16-bit BGRx 5551 format, [15:0] B:G:R:x 5:5:5:1 little endian
-	ShmFormatBgrx5551 = 0x35315842
+	ShmFormatBgrx5551 ShmFormat = 0x35315842
 	// 16-bit ARGB 1555 format, [15:0] A:R:G:B 1:5:5:5 little endian
-	ShmFormatArgb1555 = 0x35315241
+	ShmFormatArgb1555 ShmFormat = 0x35315241
 	// 16-bit ABGR 1555 format, [15:0] A:B:G:R 1:5:5:5 little endian
-	ShmFormatAbgr1555 = 0x35314241
+	ShmFormatAbgr1555 ShmFormat = 0x35314241
 	// 16-bit RGBA 5551 format, [15:0] R:G:B:A 5:5:5:1 little endian
-	ShmFormatRgba5551 = 0x35314152
+	ShmFormatRgba5551 ShmFormat = 0x35314152
 	// 16-bit BGRA 5551 format, [15:0] B:G:R:A 5:5:5:1 little endian
-	ShmFormatBgra5551 = 0x35314142
+	ShmFormatBgra5551 ShmFormat = 0x35314142
 	// 16-bit RGB 565 format, [15:0] R:G:B 5:6:5 little endian
-	ShmFormatRgb565 = 0x36314752
+	ShmFormatRgb565 ShmFormat = 0x36314752
 	// 16-bit BGR 565 format, [15:0] B:G:R 5:6:5 little endian
-	ShmFormatBgr565 = 0x36314742
+	ShmFormatBgr565 ShmFormat = 0x36314742
 	// 24-bit RGB format, [23:0] R:G:B little endian
-	ShmFormatRgb888 = 0x34324752
+	ShmFormatRgb888 ShmFormat = 0x34324752
 	// 24-bit BGR format, [23:0] B:G:R little endian
-	ShmFormatBgr888 = 0x34324742
+	ShmFormatBgr888 ShmFormat = 0x34324742
 	// 32-bit xBGR format, [31:0] x:B:G:R 8:8:8:8 little endian
-	ShmFormatXbgr8888 = 0x34324258
+	ShmFormatXbgr8888 ShmFormat = 0x34324258
 	// 32-bit RGBx format, [31:0] R:G:B:x 8:8:8:8 little endian
-	ShmFormatRgbx8888 = 0x34325852
+	ShmFormatRgbx8888 ShmFormat = 0x34325852
 	// 32-bit BGRx format, [31:0] B:G:R:x 8:8:8:8 little endian
-	ShmFormatBgrx8888 = 0x34325842
+	ShmFormatBgrx8888 ShmFormat = 0x34325842
 	// 32-bit ABGR format, [31:0] A:B:G:R 8:8:8:8 little endian
-	ShmFormatAbgr8888 = 0x34324241
+	ShmFormatAbgr8888 ShmFormat = 0x34324241
 	// 32-bit RGBA format, [31:0] R:G:B:A 8:8:8:8 little endian
-	ShmFormatRgba8888 = 0x34324152
+	ShmFormatRgba8888 ShmFormat = 0x34324152
 	// 32-bit BGRA format, [31:0] B:G:R:A 8:8:8:8 little endian
-	ShmFormatBgra8888 = 0x34324142
+	ShmFormatBgra8888 ShmFormat = 0x34324142
 	// 32-bit xRGB format, [31:0] x:R:G:B 2:10:10:10 little endian
-	ShmFormatXrgb2101010 = 0x30335258
+	ShmFormatXrgb2101010 ShmFormat = 0x30335258
 	// 32-bit xBGR format, [31:0] x:B:G:R 2:10:10:10 little endian
-	ShmFormatXbgr2101010 = 0x30334258
+	ShmFormatXbgr2101010 ShmFormat = 0x30334258
 	// 32-bit RGBx format, [31:0] R:G:B:x 10:10:10:2 little endian
-	ShmFormatRgbx1010102 = 0x30335852
+	ShmFormatRgbx1010102 ShmFormat = 0x30335852
 	// 32-bit BGRx format, [31:0] B:G:R:x 10:10:10:2 little endian
-	ShmFormatBgrx1010102 = 0x30335842
+	ShmFormatBgrx1010102 ShmFormat = 0x30335842
 	// 32-bit ARGB format, [31:0] A:R:G:B 2:10:10:10 little endian
-	ShmFormatArgb2101010 = 0x30335241
+	ShmFormatArgb2101010 ShmFormat = 0x30335241
 	// 32-bit ABGR format, [31:0] A:B:G:R 2:10:10:10 little endian
-	ShmFormatAbgr2101010 = 0x30334241
+	ShmFormatAbgr2101010 ShmFormat = 0x30334241
 	// 32-bit RGBA format, [31:0] R:G:B:A 10:10:10:2 little endian
-	ShmFormatRgba1010102 = 0x30334152
+	ShmFormatRgba1010102 ShmFormat = 0x30334152
 	// 32-bit BGRA format, [31:0] B:G:R:A 10:10:10:2 little endian
-	ShmFormatBgra1010102 = 0x30334142
+	ShmFormatBgra1010102 ShmFormat = 0x30334142
 	// packed YCbCr format, [31:0] Cr0:Y1:Cb0:Y0 8:8:8:8 little endian
-	ShmFormatYuyv = 0x56595559
+	ShmFormatYuyv ShmFormat = 0x56595559
 	// packed YCbCr format, [31:0] Cb0:Y1:Cr0:Y0 8:8:8:8 little endian
-	ShmFormatYvyu = 0x55595659
+	ShmFormatYvyu ShmFormat = 0x55595659
 	// packed YCbCr format, [31:0] Y1:Cr0:Y0:Cb0 8:8:8:8 little endian
-	ShmFormatUyvy = 0x59565955
+	ShmFormatUyvy ShmFormat = 0x59565955
 	// packed YCbCr format, [31:0] Y1:Cb0:Y0:Cr0 8:8:8:8 little endian
-	ShmFormatVyuy = 0x59555956
+	ShmFormatVyuy ShmFormat = 0x59555956
 	// packed AYCbCr format, [31:0] A:Y:Cb:Cr 8:8:8:8 little endian
-	ShmFormatAyuv = 0x56555941
+	ShmFormatAyuv ShmFormat = 0x56555941
 	// 2 plane YCbCr Cr:Cb format, 2x2 subsampled Cr:Cb plane
-	ShmFormatNv12 = 0x3231564e
+	ShmFormatNv12 ShmFormat = 0x3231564e
 	// 2 plane YCbCr Cb:Cr format, 2x2 subsampled Cb:Cr plane
-	ShmFormatNv21 = 0x3132564e
+	ShmFormatNv21 ShmFormat = 0x3132564e
 	// 2 plane YCbCr Cr:Cb format, 2x1 subsampled Cr:Cb plane
-	ShmFormatNv16 = 0x3631564e
+	ShmFormatNv16 ShmFormat = 0x3631564e
 	// 2 plane YCbCr Cb:Cr format, 2x1 subsampled Cb:Cr plane
-	ShmFormatNv61 = 0x3136564e
+	ShmFormatNv61 ShmFormat = 0x3136564e
 	// 3 plane YCbCr format, 4x4 subsampled Cb (1) and Cr (2) planes
-	ShmFormatYuv410 = 0x39565559
+	ShmFormatYuv410 ShmFormat = 0x39565559
 	// 3 plane YCbCr format, 4x4 subsampled Cr (1) and Cb (2) planes
-	ShmFormatYvu410 = 0x39555659
+	ShmFormatYvu410 ShmFormat = 0x39555659
 	// 3 plane YCbCr format, 4x1 subsampled Cb (1) and Cr (2) planes
-	ShmFormatYuv411 = 0x31315559
+	ShmFormatYuv411 ShmFormat = 0x31315559
 	// 3 plane YCbCr format, 4x1 subsampled Cr (1) and Cb (2) planes
-	ShmFormatYvu411 = 0x31315659
+	ShmFormatYvu411 ShmFormat = 0x31315659
 	// 3 plane YCbCr format, 2x2 subsampled Cb (1) and Cr (2) planes
-	ShmFormatYuv420 = 0x32315559
+	ShmFormatYuv420 ShmFormat = 0x32315559
 	// 3 plane YCbCr format, 2x2 subsampled Cr (1) and Cb (2) planes
-	ShmFormatYvu420 = 0x32315659
+	ShmFormatYvu420 ShmFormat = 0x32315659
 	// 3 plane YCbCr format, 2x1 subsampled Cb (1) and Cr (2) planes
-	ShmFormatYuv422 = 0x36315559
+	ShmFormatYuv422 ShmFormat = 0x36315559
 	// 3 plane YCbCr format, 2x1 subsampled Cr (1) and Cb (2) planes
-	ShmFormatYvu422 = 0x36315659
+	ShmFormatYvu422 ShmFormat = 0x36315659
 	// 3 plane YCbCr format, non-subsampled Cb (1) and Cr (2) planes
-	ShmFormatYuv444 = 0x34325559
+	ShmFormatYuv444 ShmFormat = 0x34325559
 	// 3 plane YCbCr format, non-subsampled Cr (1) and Cb (2) planes
-	ShmFormatYvu444 = 0x34325659
+	ShmFormatYvu444 ShmFormat = 0x34325659
 	// [7:0] R
-	ShmFormatR8 = 0x20203852
+	ShmFormatR8 ShmFormat = 0x20203852
 	// [15:0] R little endian
-	ShmFormatR16 = 0x20363152
+	ShmFormatR16 ShmFormat = 0x20363152
 	// [15:0] R:G 8:8 little endian
-	ShmFormatRg88 = 0x38384752
+	ShmFormatRg88 ShmFormat = 0x38384752
 	// [15:0] G:R 8:8 little endian
-	ShmFormatGr88 = 0x38385247
+	ShmFormatGr88 ShmFormat = 0x38385247
 	// [31:0] R:G 16:16 little endian
-	ShmFormatRg1616 = 0x32334752
+	ShmFormatRg1616 ShmFormat = 0x32334752
 	// [31:0] G:R 16:16 little endian
-	ShmFormatGr1616 = 0x32335247
+	ShmFormatGr1616 ShmFormat = 0x32335247
 	// [63:0] x:R:G:B 16:16:16:16 little endian
-	ShmFormatXrgb16161616f = 0x48345258
+	ShmFormatXrgb16161616f ShmFormat = 0x48345258
 	// [63:0] x:B:G:R 16:16:16:16 little endian
-	ShmFormatXbgr16161616f = 0x48344258
+	ShmFormatXbgr16161616f ShmFormat = 0x48344258
 	// [63:0] A:R:G:B 16:16:16:16 little endian
-	ShmFormatArgb16161616f = 0x48345241
+	ShmFormatArgb16161616f ShmFormat = 0x48345241
 	// [63:0] A:B:G:R 16:16:16:16 little endian
-	ShmFormatAbgr16161616f = 0x48344241
+	ShmFormatAbgr16161616f ShmFormat = 0x48344241
 	// [31:0] X:Y:Cb:Cr 8:8:8:8 little endian
-	ShmFormatXyuv8888 = 0x56555958
+	ShmFormatXyuv8888 ShmFormat = 0x56555958
 	// [23:0] Cr:Cb:Y 8:8:8 little endian
-	ShmFormatVuy888 = 0x34325556
+	ShmFormatVuy888 ShmFormat = 0x34325556
 	// Y followed by U then V, 10:10:10. Non-linear modifier only
-	ShmFormatVuy101010 = 0x30335556
+	ShmFormatVuy101010 ShmFormat = 0x30335556
 	// [63:0] Cr0:0:Y1:0:Cb0:0:Y0:0 10:6:10:6:10:6:10:6 little endian per 2 Y pixels
-	ShmFormatY210 = 0x30313259
+	ShmFormatY210 ShmFormat = 0x30313259
 	// [63:0] Cr0:0:Y1:0:Cb0:0:Y0:0 12:4:12:4:12:4:12:4 little endian per 2 Y pixels
-	ShmFormatY212 = 0x32313259
+	ShmFormatY212 ShmFormat = 0x32313259
 	// [63:0] Cr0:Y1:Cb0:Y0 16:16:16:16 little endian per 2 Y pixels
-	ShmFormatY216 = 0x36313259
+	ShmFormatY216 ShmFormat = 0x36313259
 	// [31:0] A:Cr:Y:Cb 2:10:10:10 little endian
-	ShmFormatY410 = 0x30313459
+	ShmFormatY410 ShmFormat = 0x30313459
 	// [63:0] A:0:Cr:0:Y:0:Cb:0 12:4:12:4:12:4:12:4 little endian
-	ShmFormatY412 = 0x32313459
+	ShmFormatY412 ShmFormat = 0x32313459
 	// [63:0] A:Cr:Y:Cb 16:16:16:16 little endian
-	ShmFormatY416 = 0x36313459
+	ShmFormatY416 ShmFormat = 0x36313459
 	// [31:0] X:Cr:Y:Cb 2:10:10:10 little endian
-	ShmFormatXvyu2101010 = 0x30335658
+	ShmFormatXvyu2101010 ShmFormat = 0x30335658
 	// [63:0] X:0:Cr:0:Y:0:Cb:0 12:4:12:4:12:4:12:4 little endian
-	ShmFormatXvyu1216161616 = 0x36335658
+	ShmFormatXvyu1216161616 ShmFormat = 0x36335658
 	// [63:0] X:Cr:Y:Cb 16:16:16:16 little endian
-	ShmFormatXvyu16161616 = 0x38345658
+	ShmFormatXvyu16161616 ShmFormat = 0x38345658
 	// [63:0]   A3:A2:Y3:0:Cr0:0:Y2:0:A1:A0:Y1:0:Cb0:0:Y0:0  1:1:8:2:8:2:8:2:1:1:8:2:8:2:8:2 little endian
-	ShmFormatY0l0 = 0x304c3059
+	ShmFormatY0l0 ShmFormat = 0x304c3059
 	// [63:0]   X3:X2:Y3:0:Cr0:0:Y2:0:X1:X0:Y1:0:Cb0:0:Y0:0  1:1:8:2:8:2:8:2:1:1:8:2:8:2:8:2 little endian
-	ShmFormatX0l0 = 0x304c3058
+	ShmFormatX0l0 ShmFormat = 0x304c3058
 	// [63:0]   A3:A2:Y3:Cr0:Y2:A1:A0:Y1:Cb0:Y0  1:1:10:10:10:1:1:10:10:10 little endian
-	ShmFormatY0l2 = 0x324c3059
+	ShmFormatY0l2 ShmFormat = 0x324c3059
 	// [63:0]   X3:X2:Y3:Cr0:Y2:X1:X0:Y1:Cb0:Y0  1:1:10:10:10:1:1:10:10:10 little endian
-	ShmFormatX0l2 = 0x324c3058
-
-	ShmFormatYuv4208bit = 0x38305559
-
-	ShmFormatYuv42010bit = 0x30315559
-
-	ShmFormatXrgb8888A8 = 0x38415258
-
-	ShmFormatXbgr8888A8 = 0x38414258
-
-	ShmFormatRgbx8888A8 = 0x38415852
-
-	ShmFormatBgrx8888A8 = 0x38415842
-
-	ShmFormatRgb888A8 = 0x38413852
-
-	ShmFormatBgr888A8 = 0x38413842
-
-	ShmFormatRgb565A8 = 0x38413552
-
-	ShmFormatBgr565A8 = 0x38413542
+	ShmFormatX0l2        ShmFormat = 0x324c3058
+	ShmFormatYuv4208bit  ShmFormat = 0x38305559
+	ShmFormatYuv42010bit ShmFormat = 0x30315559
+	ShmFormatXrgb8888A8  ShmFormat = 0x38415258
+	ShmFormatXbgr8888A8  ShmFormat = 0x38414258
+	ShmFormatRgbx8888A8  ShmFormat = 0x38415852
+	ShmFormatBgrx8888A8  ShmFormat = 0x38415842
+	ShmFormatRgb888A8    ShmFormat = 0x38413852
+	ShmFormatBgr888A8    ShmFormat = 0x38413842
+	ShmFormatRgb565A8    ShmFormat = 0x38413552
+	ShmFormatBgr565A8    ShmFormat = 0x38413542
 	// non-subsampled Cr:Cb plane
-	ShmFormatNv24 = 0x3432564e
+	ShmFormatNv24 ShmFormat = 0x3432564e
 	// non-subsampled Cb:Cr plane
-	ShmFormatNv42 = 0x3234564e
+	ShmFormatNv42 ShmFormat = 0x3234564e
 	// 2x1 subsampled Cr:Cb plane, 10 bit per channel
-	ShmFormatP210 = 0x30313250
+	ShmFormatP210 ShmFormat = 0x30313250
 	// 2x2 subsampled Cr:Cb plane 10 bits per channel
-	ShmFormatP010 = 0x30313050
+	ShmFormatP010 ShmFormat = 0x30313050
 	// 2x2 subsampled Cr:Cb plane 12 bits per channel
-	ShmFormatP012 = 0x32313050
+	ShmFormatP012 ShmFormat = 0x32313050
 	// 2x2 subsampled Cr:Cb plane 16 bits per channel
-	ShmFormatP016 = 0x36313050
+	ShmFormatP016 ShmFormat = 0x36313050
 )
 
 var shmInterface = &wlproto.Interface{
@@ -811,7 +810,7 @@ var shmInterface = &wlproto.Interface{
 			Name:  "format",
 			Since: 1,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(ShmFormat(0))},
 			},
 		},
 	},
@@ -837,7 +836,7 @@ func (obj *Shm) WithQueue(queue *wlclient.EventQueue) *Shm {
 }
 
 type ShmEvents struct {
-	Format func(obj *Shm, format uint32)
+	Format func(obj *Shm, format ShmFormat)
 }
 
 func (obj *Shm) AddListener(listeners ShmEvents) {
@@ -909,15 +908,17 @@ func (obj *Buffer) Destroy() {
 	obj.Conn().SendDestructor(obj, 0)
 }
 
+type DataOfferError uint32
+
 const (
 	// finish request was called untimely
-	DataOfferErrorInvalidFinish = 0
+	DataOfferErrorInvalidFinish DataOfferError = 0
 	// action mask contains invalid values
-	DataOfferErrorInvalidActionMask = 1
+	DataOfferErrorInvalidActionMask DataOfferError = 1
 	// action argument has an invalid value
-	DataOfferErrorInvalidAction = 2
+	DataOfferErrorInvalidAction DataOfferError = 2
 	// offer doesn't accept this request
-	DataOfferErrorInvalidOffer = 3
+	DataOfferErrorInvalidOffer DataOfferError = 3
 )
 
 var dataOfferInterface = &wlproto.Interface{
@@ -959,8 +960,8 @@ var dataOfferInterface = &wlproto.Interface{
 			Type:  "",
 			Since: 3,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeUint},
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(DataDeviceManagerDndAction(0))},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(DataDeviceManagerDndAction(0))},
 			},
 		},
 	},
@@ -976,14 +977,14 @@ var dataOfferInterface = &wlproto.Interface{
 			Name:  "source_actions",
 			Since: 3,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(DataDeviceManagerDndAction(0))},
 			},
 		},
 		{
 			Name:  "action",
 			Since: 3,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(DataDeviceManagerDndAction(0))},
 			},
 		},
 	},
@@ -1007,8 +1008,8 @@ func (obj *DataOffer) WithQueue(queue *wlclient.EventQueue) *DataOffer {
 
 type DataOfferEvents struct {
 	Offer         func(obj *DataOffer, mimeType string)
-	SourceActions func(obj *DataOffer, sourceActions uint32)
-	Action        func(obj *DataOffer, dndAction uint32)
+	SourceActions func(obj *DataOffer, sourceActions DataDeviceManagerDndAction)
+	Action        func(obj *DataOffer, dndAction DataDeviceManagerDndAction)
 }
 
 func (obj *DataOffer) AddListener(listeners DataOfferEvents) {
@@ -1086,7 +1087,7 @@ func (obj *DataOffer) Finish() {
 //
 // This request determines the final result of the drag-and-drop
 // operation. If the end result is that no action is accepted,
-// the drag source will receive wl_drag_source.cancelled.
+// the drag source will receive wl_data_source.cancelled.
 //
 // The dnd_actions argument must contain only values expressed in the
 // wl_data_device_manager.dnd_actions enum, and the preferred_action
@@ -1106,15 +1107,17 @@ func (obj *DataOffer) Finish() {
 //
 // This request can only be made on drag-and-drop offers, a protocol error
 // will be raised otherwise.
-func (obj *DataOffer) SetActions(dndActions uint32, preferredAction uint32) {
+func (obj *DataOffer) SetActions(dndActions DataDeviceManagerDndAction, preferredAction DataDeviceManagerDndAction) {
 	obj.Conn().SendRequest(obj, 4, dndActions, preferredAction)
 }
 
+type DataSourceError uint32
+
 const (
 	// action mask contains invalid values
-	DataSourceErrorInvalidActionMask = 0
+	DataSourceErrorInvalidActionMask DataSourceError = 0
 	// source doesn't accept this request
-	DataSourceErrorInvalidSource = 1
+	DataSourceErrorInvalidSource DataSourceError = 1
 )
 
 var dataSourceInterface = &wlproto.Interface{
@@ -1140,7 +1143,7 @@ var dataSourceInterface = &wlproto.Interface{
 			Type:  "",
 			Since: 3,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(DataDeviceManagerDndAction(0))},
 			},
 		},
 	},
@@ -1179,7 +1182,7 @@ var dataSourceInterface = &wlproto.Interface{
 			Name:  "action",
 			Since: 3,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(DataDeviceManagerDndAction(0))},
 			},
 		},
 	},
@@ -1205,7 +1208,7 @@ type DataSourceEvents struct {
 	Cancelled        func(obj *DataSource)
 	DndDropPerformed func(obj *DataSource)
 	DndFinished      func(obj *DataSource)
-	Action           func(obj *DataSource, dndAction uint32)
+	Action           func(obj *DataSource, dndAction DataDeviceManagerDndAction)
 }
 
 func (obj *DataSource) AddListener(listeners DataSourceEvents) {
@@ -1237,13 +1240,15 @@ func (obj *DataSource) Destroy() {
 // used in drag-and-drop, so it must be performed before
 // wl_data_device.start_drag. Attempting to use the source other than
 // for drag-and-drop will raise a protocol error.
-func (obj *DataSource) SetActions(dndActions uint32) {
+func (obj *DataSource) SetActions(dndActions DataDeviceManagerDndAction) {
 	obj.Conn().SendRequest(obj, 2, dndActions)
 }
 
+type DataDeviceError uint32
+
 const (
 	// given wl_surface has another role
-	DataDeviceErrorRole = 0
+	DataDeviceErrorRole DataDeviceError = 0
 )
 
 var dataDeviceInterface = &wlproto.Interface{
@@ -1342,9 +1347,9 @@ func (obj *DataDevice) WithQueue(queue *wlclient.EventQueue) *DataDevice {
 
 type DataDeviceEvents struct {
 	DataOffer func(obj *DataDevice, id *DataOffer)
-	Enter     func(obj *DataDevice, serial uint32, surface *Surface, x wlclient.Fixed, y wlclient.Fixed, id *DataOffer)
+	Enter     func(obj *DataDevice, serial uint32, surface *Surface, x wlshared.Fixed, y wlshared.Fixed, id *DataOffer)
 	Leave     func(obj *DataDevice)
-	Motion    func(obj *DataDevice, time uint32, x wlclient.Fixed, y wlclient.Fixed)
+	Motion    func(obj *DataDevice, time uint32, x wlshared.Fixed, y wlshared.Fixed)
 	Drop      func(obj *DataDevice)
 	Selection func(obj *DataDevice, id *DataOffer)
 }
@@ -1422,15 +1427,17 @@ func (obj *DataDevice) Destroy() { obj.Conn().Destroy(obj) }
 // Compositors may for example bind other modifiers (like Alt/Meta)
 // or drags initiated with other buttons than BTN_LEFT to specific
 // actions (e.g. "ask").
+type DataDeviceManagerDndAction uint32
+
 const (
 	// no action
-	DataDeviceManagerDndActionNone = 0
+	DataDeviceManagerDndActionNone DataDeviceManagerDndAction = 0
 	// copy action
-	DataDeviceManagerDndActionCopy = 1
+	DataDeviceManagerDndActionCopy DataDeviceManagerDndAction = 1
 	// move action
-	DataDeviceManagerDndActionMove = 2
+	DataDeviceManagerDndActionMove DataDeviceManagerDndAction = 2
 	// ask action
-	DataDeviceManagerDndActionAsk = 4
+	DataDeviceManagerDndActionAsk DataDeviceManagerDndAction = 4
 )
 
 var dataDeviceManagerInterface = &wlproto.Interface{
@@ -1503,9 +1510,11 @@ func (obj *DataDeviceManager) GetDataDevice(seat *Seat) *DataDevice {
 
 func (obj *DataDeviceManager) Destroy() { obj.Conn().Destroy(obj) }
 
+type ShellError uint32
+
 const (
 	// given wl_surface has another role
-	ShellErrorRole = 0
+	ShellErrorRole ShellError = 0
 )
 
 var shellInterface = &wlproto.Interface{
@@ -1568,46 +1577,52 @@ func (obj *Shell) Destroy() { obj.Conn().Destroy(obj) }
 // is being dragged in a resize operation. The server may
 // use this information to adapt its behavior, e.g. choose
 // an appropriate cursor image.
+type ShellSurfaceResize uint32
+
 const (
 	// no edge
-	ShellSurfaceResizeNone = 0
+	ShellSurfaceResizeNone ShellSurfaceResize = 0
 	// top edge
-	ShellSurfaceResizeTop = 1
+	ShellSurfaceResizeTop ShellSurfaceResize = 1
 	// bottom edge
-	ShellSurfaceResizeBottom = 2
+	ShellSurfaceResizeBottom ShellSurfaceResize = 2
 	// left edge
-	ShellSurfaceResizeLeft = 4
+	ShellSurfaceResizeLeft ShellSurfaceResize = 4
 	// top and left edges
-	ShellSurfaceResizeTopLeft = 5
+	ShellSurfaceResizeTopLeft ShellSurfaceResize = 5
 	// bottom and left edges
-	ShellSurfaceResizeBottomLeft = 6
+	ShellSurfaceResizeBottomLeft ShellSurfaceResize = 6
 	// right edge
-	ShellSurfaceResizeRight = 8
+	ShellSurfaceResizeRight ShellSurfaceResize = 8
 	// top and right edges
-	ShellSurfaceResizeTopRight = 9
+	ShellSurfaceResizeTopRight ShellSurfaceResize = 9
 	// bottom and right edges
-	ShellSurfaceResizeBottomRight = 10
+	ShellSurfaceResizeBottomRight ShellSurfaceResize = 10
 )
 
 // These flags specify details of the expected behaviour
 // of transient surfaces. Used in the set_transient request.
+type ShellSurfaceTransient uint32
+
 const (
 	// do not set keyboard focus
-	ShellSurfaceTransientInactive = 0x1
+	ShellSurfaceTransientInactive ShellSurfaceTransient = 0x1
 )
 
 // Hints to indicate to the compositor how to deal with a conflict
 // between the dimensions of the surface and the dimensions of the
 // output. The compositor is free to ignore this parameter.
+type ShellSurfaceFullscreenMethod uint32
+
 const (
 	// no preference, apply default policy
-	ShellSurfaceFullscreenMethodDefault = 0
+	ShellSurfaceFullscreenMethodDefault ShellSurfaceFullscreenMethod = 0
 	// scale, preserve the surface's aspect ratio and center on output
-	ShellSurfaceFullscreenMethodScale = 1
+	ShellSurfaceFullscreenMethodScale ShellSurfaceFullscreenMethod = 1
 	// switch output mode to the smallest mode that can fit the surface, add black borders to compensate size mismatch
-	ShellSurfaceFullscreenMethodDriver = 2
+	ShellSurfaceFullscreenMethodDriver ShellSurfaceFullscreenMethod = 2
 	// no upscaling, center on output and add black borders to compensate size mismatch
-	ShellSurfaceFullscreenMethodFill = 3
+	ShellSurfaceFullscreenMethodFill ShellSurfaceFullscreenMethod = 3
 )
 
 var shellSurfaceInterface = &wlproto.Interface{
@@ -1638,7 +1653,7 @@ var shellSurfaceInterface = &wlproto.Interface{
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf((*Seat)(nil))},
 				{Type: wlproto.ArgTypeUint},
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(ShellSurfaceResize(0))},
 			},
 		},
 		{
@@ -1655,7 +1670,7 @@ var shellSurfaceInterface = &wlproto.Interface{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf((*Surface)(nil))},
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(ShellSurfaceTransient(0))},
 			},
 		},
 		{
@@ -1663,7 +1678,7 @@ var shellSurfaceInterface = &wlproto.Interface{
 			Type:  "",
 			Since: 1,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(ShellSurfaceFullscreenMethod(0))},
 				{Type: wlproto.ArgTypeUint},
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf((*Output)(nil))},
 			},
@@ -1678,7 +1693,7 @@ var shellSurfaceInterface = &wlproto.Interface{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf((*Surface)(nil))},
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(ShellSurfaceTransient(0))},
 			},
 		},
 		{
@@ -1718,7 +1733,7 @@ var shellSurfaceInterface = &wlproto.Interface{
 			Name:  "configure",
 			Since: 1,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(ShellSurfaceResize(0))},
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
 			},
@@ -1754,7 +1769,7 @@ func (obj *ShellSurface) WithQueue(queue *wlclient.EventQueue) *ShellSurface {
 
 type ShellSurfaceEvents struct {
 	Ping      func(obj *ShellSurface, serial uint32)
-	Configure func(obj *ShellSurface, edges uint32, width int32, height int32)
+	Configure func(obj *ShellSurface, edges ShellSurfaceResize, width int32, height int32)
 	PopupDone func(obj *ShellSurface)
 }
 
@@ -1782,7 +1797,7 @@ func (obj *ShellSurface) Move(seat *Seat, serial uint32) {
 // This request must be used in response to a button press event.
 // The server may ignore resize requests depending on the state of
 // the surface (e.g. fullscreen or maximized).
-func (obj *ShellSurface) Resize(seat *Seat, serial uint32, edges uint32) {
+func (obj *ShellSurface) Resize(seat *Seat, serial uint32, edges ShellSurfaceResize) {
 	obj.Conn().SendRequest(obj, 2, seat, serial, edges)
 }
 
@@ -1800,7 +1815,7 @@ func (obj *ShellSurface) SetToplevel() {
 // parent surface, in surface-local coordinates.
 //
 // The flags argument controls details of the transient behaviour.
-func (obj *ShellSurface) SetTransient(parent *Surface, x int32, y int32, flags uint32) {
+func (obj *ShellSurface) SetTransient(parent *Surface, x int32, y int32, flags ShellSurfaceTransient) {
 	obj.Conn().SendRequest(obj, 4, parent, x, y, flags)
 }
 
@@ -1837,7 +1852,7 @@ func (obj *ShellSurface) SetTransient(parent *Surface, x int32, y int32, flags u
 // The compositor must reply to this request with a configure event
 // with the dimensions for the output on which the surface will
 // be made fullscreen.
-func (obj *ShellSurface) SetFullscreen(method uint32, framerate uint32, output *Output) {
+func (obj *ShellSurface) SetFullscreen(method ShellSurfaceFullscreenMethod, framerate uint32, output *Output) {
 	obj.Conn().SendRequest(obj, 5, method, framerate, output)
 }
 
@@ -1860,7 +1875,7 @@ func (obj *ShellSurface) SetFullscreen(method uint32, framerate uint32, output *
 // The x and y arguments specify the location of the upper left
 // corner of the surface relative to the upper left corner of the
 // parent surface, in surface-local coordinates.
-func (obj *ShellSurface) SetPopup(seat *Seat, serial uint32, parent *Surface, x int32, y int32, flags uint32) {
+func (obj *ShellSurface) SetPopup(seat *Seat, serial uint32, parent *Surface, x int32, y int32, flags ShellSurfaceTransient) {
 	obj.Conn().SendRequest(obj, 6, seat, serial, parent, x, y, flags)
 }
 
@@ -1910,11 +1925,13 @@ func (obj *ShellSurface) SetClass(class string) {
 func (obj *ShellSurface) Destroy() { obj.Conn().Destroy(obj) }
 
 // These errors can be emitted in response to wl_surface requests.
+type SurfaceError uint32
+
 const (
 	// buffer scale value is invalid
-	SurfaceErrorInvalidScale = 0
+	SurfaceErrorInvalidScale SurfaceError = 0
 	// buffer transform value is invalid
-	SurfaceErrorInvalidTransform = 1
+	SurfaceErrorInvalidTransform SurfaceError = 1
 )
 
 var surfaceInterface = &wlproto.Interface{
@@ -1983,7 +2000,7 @@ var surfaceInterface = &wlproto.Interface{
 			Type:  "",
 			Since: 2,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeInt},
+				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(int32(0))},
 			},
 		},
 		{
@@ -2375,13 +2392,15 @@ func (obj *Surface) DamageBuffer(x int32, y int32, width int32, height int32) {
 
 // This is a bitmask of capabilities this seat has; if a member is
 // set, then it is present on the seat.
+type SeatCapability uint32
+
 const (
 	// the seat has pointer devices
-	SeatCapabilityPointer = 1
+	SeatCapabilityPointer SeatCapability = 1
 	// the seat has one or more keyboards
-	SeatCapabilityKeyboard = 2
+	SeatCapabilityKeyboard SeatCapability = 2
 	// the seat has touch devices
-	SeatCapabilityTouch = 4
+	SeatCapabilityTouch SeatCapability = 4
 )
 
 var seatInterface = &wlproto.Interface{
@@ -2424,7 +2443,7 @@ var seatInterface = &wlproto.Interface{
 			Name:  "capabilities",
 			Since: 1,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(SeatCapability(0))},
 			},
 		},
 		{
@@ -2452,7 +2471,7 @@ func (obj *Seat) WithQueue(queue *wlclient.EventQueue) *Seat {
 }
 
 type SeatEvents struct {
-	Capabilities func(obj *Seat, capabilities uint32)
+	Capabilities func(obj *Seat, capabilities SeatCapability)
 	Name         func(obj *Seat, name string)
 }
 
@@ -2510,26 +2529,32 @@ func (obj *Seat) Release() {
 
 func (obj *Seat) Destroy() { obj.Conn().Destroy(obj) }
 
+type PointerError uint32
+
 const (
 	// given wl_surface has another role
-	PointerErrorRole = 0
+	PointerErrorRole PointerError = 0
 )
 
 // Describes the physical state of a button that produced the button
 // event.
+type PointerButtonState uint32
+
 const (
 	// the button is not pressed
-	PointerButtonStateReleased = 0
+	PointerButtonStateReleased PointerButtonState = 0
 	// the button is pressed
-	PointerButtonStatePressed = 1
+	PointerButtonStatePressed PointerButtonState = 1
 )
 
 // Describes the axis types of scroll events.
+type PointerAxis uint32
+
 const (
 	// vertical axis
-	PointerAxisVerticalScroll = 0
+	PointerAxisVerticalScroll PointerAxis = 0
 	// horizontal axis
-	PointerAxisHorizontalScroll = 1
+	PointerAxisHorizontalScroll PointerAxis = 1
 )
 
 // Describes the source types for axis events. This indicates to the
@@ -2548,15 +2573,17 @@ const (
 // The "wheel tilt" axis source indicates that the actual device is a
 // wheel but the scroll event is not caused by a rotation but a
 // (usually sideways) tilt of the wheel.
+type PointerAxisSource uint32
+
 const (
 	// a physical wheel rotation
-	PointerAxisSourceWheel = 0
+	PointerAxisSourceWheel PointerAxisSource = 0
 	// finger on a touch surface
-	PointerAxisSourceFinger = 1
+	PointerAxisSourceFinger PointerAxisSource = 1
 	// continuous coordinate space
-	PointerAxisSourceContinuous = 2
+	PointerAxisSourceContinuous PointerAxisSource = 2
 	// a physical wheel tilt
-	PointerAxisSourceWheelTilt = 3
+	PointerAxisSourceWheelTilt PointerAxisSource = 3
 )
 
 var pointerInterface = &wlproto.Interface{
@@ -2616,7 +2643,7 @@ var pointerInterface = &wlproto.Interface{
 				{Type: wlproto.ArgTypeUint},
 				{Type: wlproto.ArgTypeUint},
 				{Type: wlproto.ArgTypeUint},
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(PointerButtonState(0))},
 			},
 		},
 		{
@@ -2624,7 +2651,7 @@ var pointerInterface = &wlproto.Interface{
 			Since: 1,
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint},
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(PointerAxis(0))},
 				{Type: wlproto.ArgTypeFixed},
 			},
 		},
@@ -2637,7 +2664,7 @@ var pointerInterface = &wlproto.Interface{
 			Name:  "axis_source",
 			Since: 5,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(PointerAxisSource(0))},
 			},
 		},
 		{
@@ -2645,14 +2672,14 @@ var pointerInterface = &wlproto.Interface{
 			Since: 5,
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint},
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(PointerAxis(0))},
 			},
 		},
 		{
 			Name:  "axis_discrete",
 			Since: 5,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(PointerAxis(0))},
 				{Type: wlproto.ArgTypeInt},
 			},
 		},
@@ -2678,15 +2705,15 @@ func (obj *Pointer) WithQueue(queue *wlclient.EventQueue) *Pointer {
 }
 
 type PointerEvents struct {
-	Enter        func(obj *Pointer, serial uint32, surface *Surface, surfaceX wlclient.Fixed, surfaceY wlclient.Fixed)
+	Enter        func(obj *Pointer, serial uint32, surface *Surface, surfaceX wlshared.Fixed, surfaceY wlshared.Fixed)
 	Leave        func(obj *Pointer, serial uint32, surface *Surface)
-	Motion       func(obj *Pointer, time uint32, surfaceX wlclient.Fixed, surfaceY wlclient.Fixed)
-	Button       func(obj *Pointer, serial uint32, time uint32, button uint32, state uint32)
-	Axis         func(obj *Pointer, time uint32, axis uint32, value wlclient.Fixed)
+	Motion       func(obj *Pointer, time uint32, surfaceX wlshared.Fixed, surfaceY wlshared.Fixed)
+	Button       func(obj *Pointer, serial uint32, time uint32, button uint32, state PointerButtonState)
+	Axis         func(obj *Pointer, time uint32, axis PointerAxis, value wlshared.Fixed)
 	Frame        func(obj *Pointer)
-	AxisSource   func(obj *Pointer, axisSource uint32)
-	AxisStop     func(obj *Pointer, time uint32, axis uint32)
-	AxisDiscrete func(obj *Pointer, axis uint32, discrete int32)
+	AxisSource   func(obj *Pointer, axisSource PointerAxisSource)
+	AxisStop     func(obj *Pointer, time uint32, axis PointerAxis)
+	AxisDiscrete func(obj *Pointer, axis PointerAxis, discrete int32)
 }
 
 func (obj *Pointer) AddListener(listeners PointerEvents) {
@@ -2741,19 +2768,23 @@ func (obj *Pointer) Destroy() { obj.Conn().Destroy(obj) }
 
 // This specifies the format of the keymap provided to the
 // client with the wl_keyboard.keymap event.
+type KeyboardKeymapFormat uint32
+
 const (
 	// no keymap; client must understand how to interpret the raw keycode
-	KeyboardKeymapFormatNoKeymap = 0
+	KeyboardKeymapFormatNoKeymap KeyboardKeymapFormat = 0
 	// libxkbcommon compatible; to determine the xkb keycode, clients must add 8 to the key event keycode
-	KeyboardKeymapFormatXkbV1 = 1
+	KeyboardKeymapFormatXkbV1 KeyboardKeymapFormat = 1
 )
 
 // Describes the physical state of a key that produced the key event.
+type KeyboardKeyState uint32
+
 const (
 	// key is not pressed
-	KeyboardKeyStateReleased = 0
+	KeyboardKeyStateReleased KeyboardKeyState = 0
 	// key is pressed
-	KeyboardKeyStatePressed = 1
+	KeyboardKeyStatePressed KeyboardKeyState = 1
 )
 
 var keyboardInterface = &wlproto.Interface{
@@ -2772,7 +2803,7 @@ var keyboardInterface = &wlproto.Interface{
 			Name:  "keymap",
 			Since: 1,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(KeyboardKeymapFormat(0))},
 				{Type: wlproto.ArgTypeFd},
 				{Type: wlproto.ArgTypeUint},
 			},
@@ -2801,7 +2832,7 @@ var keyboardInterface = &wlproto.Interface{
 				{Type: wlproto.ArgTypeUint},
 				{Type: wlproto.ArgTypeUint},
 				{Type: wlproto.ArgTypeUint},
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(KeyboardKeyState(0))},
 			},
 		},
 		{
@@ -2839,10 +2870,10 @@ func (obj *Keyboard) WithQueue(queue *wlclient.EventQueue) *Keyboard {
 }
 
 type KeyboardEvents struct {
-	Keymap     func(obj *Keyboard, format uint32, fd uintptr, size uint32)
+	Keymap     func(obj *Keyboard, format KeyboardKeymapFormat, fd uintptr, size uint32)
 	Enter      func(obj *Keyboard, serial uint32, surface *Surface, keys []byte)
 	Leave      func(obj *Keyboard, serial uint32, surface *Surface)
-	Key        func(obj *Keyboard, serial uint32, time uint32, key uint32, state uint32)
+	Key        func(obj *Keyboard, serial uint32, time uint32, key uint32, state KeyboardKeyState)
 	Modifiers  func(obj *Keyboard, serial uint32, modsDepressed uint32, modsLatched uint32, modsLocked uint32, group uint32)
 	RepeatInfo func(obj *Keyboard, rate int32, delay int32)
 }
@@ -2950,13 +2981,13 @@ func (obj *Touch) WithQueue(queue *wlclient.EventQueue) *Touch {
 }
 
 type TouchEvents struct {
-	Down        func(obj *Touch, serial uint32, time uint32, surface *Surface, id int32, x wlclient.Fixed, y wlclient.Fixed)
+	Down        func(obj *Touch, serial uint32, time uint32, surface *Surface, id int32, x wlshared.Fixed, y wlshared.Fixed)
 	Up          func(obj *Touch, serial uint32, time uint32, id int32)
-	Motion      func(obj *Touch, time uint32, id int32, x wlclient.Fixed, y wlclient.Fixed)
+	Motion      func(obj *Touch, time uint32, id int32, x wlshared.Fixed, y wlshared.Fixed)
 	Frame       func(obj *Touch)
 	Cancel      func(obj *Touch)
-	Shape       func(obj *Touch, id int32, major wlclient.Fixed, minor wlclient.Fixed)
-	Orientation func(obj *Touch, id int32, orientation wlclient.Fixed)
+	Shape       func(obj *Touch, id int32, major wlshared.Fixed, minor wlshared.Fixed)
+	Orientation func(obj *Touch, id int32, orientation wlshared.Fixed)
 }
 
 func (obj *Touch) AddListener(listeners TouchEvents) {
@@ -2972,19 +3003,21 @@ func (obj *Touch) Destroy() { obj.Conn().Destroy(obj) }
 
 // This enumeration describes how the physical
 // pixels on an output are laid out.
+type OutputSubpixel uint32
+
 const (
 	// unknown geometry
-	OutputSubpixelUnknown = 0
+	OutputSubpixelUnknown OutputSubpixel = 0
 	// no geometry
-	OutputSubpixelNone = 1
+	OutputSubpixelNone OutputSubpixel = 1
 	// horizontal RGB
-	OutputSubpixelHorizontalRgb = 2
+	OutputSubpixelHorizontalRgb OutputSubpixel = 2
 	// horizontal BGR
-	OutputSubpixelHorizontalBgr = 3
+	OutputSubpixelHorizontalBgr OutputSubpixel = 3
 	// vertical RGB
-	OutputSubpixelVerticalRgb = 4
+	OutputSubpixelVerticalRgb OutputSubpixel = 4
 	// vertical BGR
-	OutputSubpixelVerticalBgr = 5
+	OutputSubpixelVerticalBgr OutputSubpixel = 5
 )
 
 // This describes the transform that a compositor will apply to a
@@ -2998,32 +3031,36 @@ const (
 // tell the compositor, so that for fullscreen surfaces, the
 // compositor will still be able to scan out directly from client
 // surfaces.
+type OutputTransform uint32
+
 const (
 	// no transform
-	OutputTransformNormal = 0
+	OutputTransformNormal OutputTransform = 0
 	// 90 degrees counter-clockwise
-	OutputTransform90 = 1
+	OutputTransform90 OutputTransform = 1
 	// 180 degrees counter-clockwise
-	OutputTransform180 = 2
+	OutputTransform180 OutputTransform = 2
 	// 270 degrees counter-clockwise
-	OutputTransform270 = 3
+	OutputTransform270 OutputTransform = 3
 	// 180 degree flip around a vertical axis
-	OutputTransformFlipped = 4
+	OutputTransformFlipped OutputTransform = 4
 	// flip and rotate 90 degrees counter-clockwise
-	OutputTransformFlipped90 = 5
+	OutputTransformFlipped90 OutputTransform = 5
 	// flip and rotate 180 degrees counter-clockwise
-	OutputTransformFlipped180 = 6
+	OutputTransformFlipped180 OutputTransform = 6
 	// flip and rotate 270 degrees counter-clockwise
-	OutputTransformFlipped270 = 7
+	OutputTransformFlipped270 OutputTransform = 7
 )
 
 // These flags describe properties of an output mode.
 // They are used in the flags bitfield of the mode event.
+type OutputMode uint32
+
 const (
 	// indicates this is the current mode
-	OutputModeCurrent = 0x1
+	OutputModeCurrent OutputMode = 0x1
 	// indicates this is the preferred mode
-	OutputModePreferred = 0x2
+	OutputModePreferred OutputMode = 0x2
 )
 
 var outputInterface = &wlproto.Interface{
@@ -3046,17 +3083,17 @@ var outputInterface = &wlproto.Interface{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
-				{Type: wlproto.ArgTypeInt},
+				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(int32(0))},
 				{Type: wlproto.ArgTypeString},
 				{Type: wlproto.ArgTypeString},
-				{Type: wlproto.ArgTypeInt},
+				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(int32(0))},
 			},
 		},
 		{
 			Name:  "mode",
 			Since: 1,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(OutputMode(0))},
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
@@ -3095,7 +3132,7 @@ func (obj *Output) WithQueue(queue *wlclient.EventQueue) *Output {
 
 type OutputEvents struct {
 	Geometry func(obj *Output, x int32, y int32, physicalWidth int32, physicalHeight int32, subpixel int32, make string, model string, transform int32)
-	Mode     func(obj *Output, flags uint32, width int32, height int32, refresh int32)
+	Mode     func(obj *Output, flags OutputMode, width int32, height int32, refresh int32)
 	Done     func(obj *Output)
 	Scale    func(obj *Output, factor int32)
 }
@@ -3184,9 +3221,11 @@ func (obj *Region) Subtract(x int32, y int32, width int32, height int32) {
 	obj.Conn().SendRequest(obj, 2, x, y, width, height)
 }
 
+type SubcompositorError uint32
+
 const (
 	// the to-be sub-surface is invalid
-	SubcompositorErrorBadSurface = 0
+	SubcompositorErrorBadSurface SubcompositorError = 0
 )
 
 var subcompositorInterface = &wlproto.Interface{
@@ -3278,9 +3317,11 @@ func (obj *Subcompositor) GetSubsurface(surface *Surface, parent *Surface) *Subs
 	return _ret
 }
 
+type SubsurfaceError uint32
+
 const (
 	// wl_surface is not a sibling or the parent
-	SubsurfaceErrorBadSurface = 0
+	SubsurfaceErrorBadSurface SubsurfaceError = 0
 )
 
 var subsurfaceInterface = &wlproto.Interface{

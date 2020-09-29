@@ -4,11 +4,14 @@
 package xdgShell
 
 import (
-	"honnef.co/go/wayland/protocols/wayland"
 	"honnef.co/go/wayland/wlclient"
+	"honnef.co/go/wayland/wlclient/protocols/wayland"
 	"honnef.co/go/wayland/wlproto"
+	"honnef.co/go/wayland/wlshared"
 	"reflect"
 )
+
+var _ wlshared.Fixed
 
 var interfaceNames = map[string]string{
 	"xdg_wm_base":    "WmBase",
@@ -38,6 +41,9 @@ var Requests = map[string]*wlproto.Request{
 	"xdg_positioner_set_gravity":               &positionerInterface.Requests[4],
 	"xdg_positioner_set_constraint_adjustment": &positionerInterface.Requests[5],
 	"xdg_positioner_set_offset":                &positionerInterface.Requests[6],
+	"xdg_positioner_set_reactive":              &positionerInterface.Requests[7],
+	"xdg_positioner_set_parent_size":           &positionerInterface.Requests[8],
+	"xdg_positioner_set_parent_configure":      &positionerInterface.Requests[9],
 	"xdg_surface_destroy":                      &surfaceInterface.Requests[0],
 	"xdg_surface_get_toplevel":                 &surfaceInterface.Requests[1],
 	"xdg_surface_get_popup":                    &surfaceInterface.Requests[2],
@@ -59,6 +65,7 @@ var Requests = map[string]*wlproto.Request{
 	"xdg_toplevel_set_minimized":               &toplevelInterface.Requests[13],
 	"xdg_popup_destroy":                        &popupInterface.Requests[0],
 	"xdg_popup_grab":                           &popupInterface.Requests[1],
+	"xdg_popup_reposition":                     &popupInterface.Requests[2],
 }
 
 var Events = map[string]*wlproto.Event{
@@ -68,26 +75,29 @@ var Events = map[string]*wlproto.Event{
 	"xdg_toplevel_close":     &toplevelInterface.Events[1],
 	"xdg_popup_configure":    &popupInterface.Events[0],
 	"xdg_popup_popup_done":   &popupInterface.Events[1],
+	"xdg_popup_repositioned": &popupInterface.Events[2],
 }
+
+type WmBaseError uint32
 
 const (
 	// given wl_surface has another role
-	WmBaseErrorRole = 0
+	WmBaseErrorRole WmBaseError = 0
 	// xdg_wm_base was destroyed before children
-	WmBaseErrorDefunctSurfaces = 1
+	WmBaseErrorDefunctSurfaces WmBaseError = 1
 	// the client tried to map or destroy a non-topmost popup
-	WmBaseErrorNotTheTopmostPopup = 2
+	WmBaseErrorNotTheTopmostPopup WmBaseError = 2
 	// the client specified an invalid popup parent surface
-	WmBaseErrorInvalidPopupParent = 3
+	WmBaseErrorInvalidPopupParent WmBaseError = 3
 	// the client provided an invalid surface state
-	WmBaseErrorInvalidSurfaceState = 4
+	WmBaseErrorInvalidSurfaceState WmBaseError = 4
 	// the client provided an invalid positioner
-	WmBaseErrorInvalidPositioner = 5
+	WmBaseErrorInvalidPositioner WmBaseError = 5
 )
 
 var wmBaseInterface = &wlproto.Interface{
 	Name:    "xdg_wm_base",
-	Version: 2,
+	Version: 3,
 	Requests: []wlproto.Request{
 		{
 			Name:  "destroy",
@@ -198,49 +208,39 @@ func (obj *WmBase) Pong(serial uint32) {
 	obj.Conn().SendRequest(obj, 3, serial)
 }
 
+type PositionerError uint32
+
 const (
 	// invalid input provided
-	PositionerErrorInvalidInput = 0
+	PositionerErrorInvalidInput PositionerError = 0
 )
 
+type PositionerAnchor uint32
+
 const (
-	PositionerAnchorNone = 0
-
-	PositionerAnchorTop = 1
-
-	PositionerAnchorBottom = 2
-
-	PositionerAnchorLeft = 3
-
-	PositionerAnchorRight = 4
-
-	PositionerAnchorTopLeft = 5
-
-	PositionerAnchorBottomLeft = 6
-
-	PositionerAnchorTopRight = 7
-
-	PositionerAnchorBottomRight = 8
+	PositionerAnchorNone        PositionerAnchor = 0
+	PositionerAnchorTop         PositionerAnchor = 1
+	PositionerAnchorBottom      PositionerAnchor = 2
+	PositionerAnchorLeft        PositionerAnchor = 3
+	PositionerAnchorRight       PositionerAnchor = 4
+	PositionerAnchorTopLeft     PositionerAnchor = 5
+	PositionerAnchorBottomLeft  PositionerAnchor = 6
+	PositionerAnchorTopRight    PositionerAnchor = 7
+	PositionerAnchorBottomRight PositionerAnchor = 8
 )
 
+type PositionerGravity uint32
+
 const (
-	PositionerGravityNone = 0
-
-	PositionerGravityTop = 1
-
-	PositionerGravityBottom = 2
-
-	PositionerGravityLeft = 3
-
-	PositionerGravityRight = 4
-
-	PositionerGravityTopLeft = 5
-
-	PositionerGravityBottomLeft = 6
-
-	PositionerGravityTopRight = 7
-
-	PositionerGravityBottomRight = 8
+	PositionerGravityNone        PositionerGravity = 0
+	PositionerGravityTop         PositionerGravity = 1
+	PositionerGravityBottom      PositionerGravity = 2
+	PositionerGravityLeft        PositionerGravity = 3
+	PositionerGravityRight       PositionerGravity = 4
+	PositionerGravityTopLeft     PositionerGravity = 5
+	PositionerGravityBottomLeft  PositionerGravity = 6
+	PositionerGravityTopRight    PositionerGravity = 7
+	PositionerGravityBottomRight PositionerGravity = 8
 )
 
 // The constraint adjustment value define ways the compositor will adjust
@@ -254,10 +254,12 @@ const (
 //
 // The adjustments can be combined, according to a defined precedence: 1)
 // Flip, 2) Slide, 3) Resize.
+type PositionerConstraintAdjustment uint32
+
 const (
 	// Don't alter the surface position even if it is constrained on some
 	// axis, for example partially outside the edge of an output.
-	PositionerConstraintAdjustmentNone = 0
+	PositionerConstraintAdjustmentNone PositionerConstraintAdjustment = 0
 	// Slide the surface along the x axis until it is no longer constrained.
 	//
 	// First try to slide towards the direction of the gravity on the x axis
@@ -269,7 +271,7 @@ const (
 	// x axis until either the edge in the direction of the gravity is
 	// unconstrained or the edge in the opposite direction of the gravity is
 	// constrained.
-	PositionerConstraintAdjustmentSlideX = 1
+	PositionerConstraintAdjustmentSlideX PositionerConstraintAdjustment = 1
 	// Slide the surface along the y axis until it is no longer constrained.
 	//
 	// First try to slide towards the direction of the gravity on the y axis
@@ -281,7 +283,7 @@ const (
 	// y axis until either the edge in the direction of the gravity is
 	// unconstrained or the edge in the opposite direction of the gravity is
 	// constrained.
-	PositionerConstraintAdjustmentSlideY = 2
+	PositionerConstraintAdjustmentSlideY PositionerConstraintAdjustment = 2
 	// Invert the anchor and gravity on the x axis if the surface is
 	// constrained on the x axis. For example, if the left edge of the
 	// surface is constrained, the gravity is 'left' and the anchor is
@@ -290,7 +292,7 @@ const (
 	// If the adjusted position also ends up being constrained, the resulting
 	// position of the flip_x adjustment will be the one before the
 	// adjustment.
-	PositionerConstraintAdjustmentFlipX = 4
+	PositionerConstraintAdjustmentFlipX PositionerConstraintAdjustment = 4
 	// Invert the anchor and gravity on the y axis if the surface is
 	// constrained on the y axis. For example, if the bottom edge of the
 	// surface is constrained, the gravity is 'bottom' and the anchor is
@@ -303,17 +305,17 @@ const (
 	// If the adjusted position also ends up being constrained, the resulting
 	// position of the flip_y adjustment will be the one before the
 	// adjustment.
-	PositionerConstraintAdjustmentFlipY = 8
+	PositionerConstraintAdjustmentFlipY PositionerConstraintAdjustment = 8
 	// Resize the surface horizontally so that it is completely
 	// unconstrained.
-	PositionerConstraintAdjustmentResizeX = 16
+	PositionerConstraintAdjustmentResizeX PositionerConstraintAdjustment = 16
 	// Resize the surface vertically so that it is completely unconstrained.
-	PositionerConstraintAdjustmentResizeY = 32
+	PositionerConstraintAdjustmentResizeY PositionerConstraintAdjustment = 32
 )
 
 var positionerInterface = &wlproto.Interface{
 	Name:    "xdg_positioner",
-	Version: 2,
+	Version: 3,
 	Requests: []wlproto.Request{
 		{
 			Name:  "destroy",
@@ -346,7 +348,7 @@ var positionerInterface = &wlproto.Interface{
 			Type:  "",
 			Since: 1,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(PositionerAnchor(0))},
 			},
 		},
 		{
@@ -354,7 +356,7 @@ var positionerInterface = &wlproto.Interface{
 			Type:  "",
 			Since: 1,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(PositionerGravity(0))},
 			},
 		},
 		{
@@ -372,6 +374,29 @@ var positionerInterface = &wlproto.Interface{
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
+			},
+		},
+		{
+			Name:  "set_reactive",
+			Type:  "",
+			Since: 3,
+			Args:  []wlproto.Arg{},
+		},
+		{
+			Name:  "set_parent_size",
+			Type:  "",
+			Since: 3,
+			Args: []wlproto.Arg{
+				{Type: wlproto.ArgTypeInt},
+				{Type: wlproto.ArgTypeInt},
+			},
+		},
+		{
+			Name:  "set_parent_configure",
+			Type:  "",
+			Since: 3,
+			Args: []wlproto.Arg{
+				{Type: wlproto.ArgTypeUint},
 			},
 		},
 	},
@@ -448,7 +473,7 @@ func (obj *Positioner) SetAnchorRect(x int32, y int32, width int32, height int32
 // 'bottom_right'), the anchor point will be at the specified corner;
 // otherwise, the derived anchor point will be centered on the specified
 // edge, or in the center of the anchor rectangle if no edge is specified.
-func (obj *Positioner) SetAnchor(anchor uint32) {
+func (obj *Positioner) SetAnchor(anchor PositionerAnchor) {
 	obj.Conn().SendRequest(obj, 3, anchor)
 }
 
@@ -458,7 +483,7 @@ func (obj *Positioner) SetAnchor(anchor uint32) {
 // will be placed towards the specified gravity; otherwise, the child
 // surface will be centered over the anchor point on any axis that had no
 // gravity specified.
-func (obj *Positioner) SetGravity(gravity uint32) {
+func (obj *Positioner) SetGravity(gravity PositionerGravity) {
 	obj.Conn().SendRequest(obj, 4, gravity)
 }
 
@@ -494,17 +519,46 @@ func (obj *Positioner) SetOffset(x int32, y int32) {
 	obj.Conn().SendRequest(obj, 6, x, y)
 }
 
+// When set reactive, the surface is reconstrained if the conditions used
+// for constraining changed, e.g. the parent window moved.
+//
+// If the conditions changed and the popup was reconstrained, an
+// xdg_popup.configure event is sent with updated geometry, followed by an
+// xdg_surface.configure event.
+func (obj *Positioner) SetReactive() {
+	obj.Conn().SendRequest(obj, 7)
+}
+
+// Set the parent window geometry the compositor should use when
+// positioning the popup. The compositor may use this information to
+// determine the future state the popup should be constrained using. If
+// this doesn't match the dimension of the parent the popup is eventually
+// positioned against, the behavior is undefined.
+//
+// The arguments are given in the surface-local coordinate space.
+func (obj *Positioner) SetParentSize(parentWidth int32, parentHeight int32) {
+	obj.Conn().SendRequest(obj, 8, parentWidth, parentHeight)
+}
+
+// Set the serial of a xdg_surface.configure event this positioner will be
+// used in response to. The compositor may use this information together
+// with set_parent_size to determine what future state the popup should be
+// constrained using.
+func (obj *Positioner) SetParentConfigure(serial uint32) {
+	obj.Conn().SendRequest(obj, 9, serial)
+}
+
+type SurfaceError uint32
+
 const (
-	SurfaceErrorNotConstructed = 1
-
-	SurfaceErrorAlreadyConstructed = 2
-
-	SurfaceErrorUnconfiguredBuffer = 3
+	SurfaceErrorNotConstructed     SurfaceError = 1
+	SurfaceErrorAlreadyConstructed SurfaceError = 2
+	SurfaceErrorUnconfiguredBuffer SurfaceError = 3
 )
 
 var surfaceInterface = &wlproto.Interface{
 	Name:    "xdg_surface",
-	Version: 2,
+	Version: 3,
 	Requests: []wlproto.Request{
 		{
 			Name:  "destroy",
@@ -709,24 +763,18 @@ func (obj *Surface) AckConfigure(serial uint32) {
 
 // These values are used to indicate which edge of a surface
 // is being dragged in a resize operation.
+type ToplevelResizeEdge uint32
+
 const (
-	ToplevelResizeEdgeNone = 0
-
-	ToplevelResizeEdgeTop = 1
-
-	ToplevelResizeEdgeBottom = 2
-
-	ToplevelResizeEdgeLeft = 4
-
-	ToplevelResizeEdgeTopLeft = 5
-
-	ToplevelResizeEdgeBottomLeft = 6
-
-	ToplevelResizeEdgeRight = 8
-
-	ToplevelResizeEdgeTopRight = 9
-
-	ToplevelResizeEdgeBottomRight = 10
+	ToplevelResizeEdgeNone        ToplevelResizeEdge = 0
+	ToplevelResizeEdgeTop         ToplevelResizeEdge = 1
+	ToplevelResizeEdgeBottom      ToplevelResizeEdge = 2
+	ToplevelResizeEdgeLeft        ToplevelResizeEdge = 4
+	ToplevelResizeEdgeTopLeft     ToplevelResizeEdge = 5
+	ToplevelResizeEdgeBottomLeft  ToplevelResizeEdge = 6
+	ToplevelResizeEdgeRight       ToplevelResizeEdge = 8
+	ToplevelResizeEdgeTopRight    ToplevelResizeEdge = 9
+	ToplevelResizeEdgeBottomRight ToplevelResizeEdge = 10
 )
 
 // The different state values used on the surface. This is designed for
@@ -736,45 +784,47 @@ const (
 //
 // States set in this way are double-buffered. They will get applied on
 // the next commit.
+type ToplevelState uint32
+
 const (
 	// The surface is maximized. The window geometry specified in the configure
 	// event must be obeyed by the client.
 	//
 	// The client should draw without shadow or other
 	// decoration outside of the window geometry.
-	ToplevelStateMaximized = 1
+	ToplevelStateMaximized ToplevelState = 1
 	// The surface is fullscreen. The window geometry specified in the
 	// configure event is a maximum; the client cannot resize beyond it. For
 	// a surface to cover the whole fullscreened area, the geometry
 	// dimensions must be obeyed by the client. For more details, see
 	// xdg_toplevel.set_fullscreen.
-	ToplevelStateFullscreen = 2
+	ToplevelStateFullscreen ToplevelState = 2
 	// The surface is being resized. The window geometry specified in the
 	// configure event is a maximum; the client cannot resize beyond it.
 	// Clients that have aspect ratio or cell sizing configuration can use
 	// a smaller size, however.
-	ToplevelStateResizing = 3
+	ToplevelStateResizing ToplevelState = 3
 	// Client window decorations should be painted as if the window is
 	// active. Do not assume this means that the window actually has
 	// keyboard or pointer focus.
-	ToplevelStateActivated = 4
+	ToplevelStateActivated ToplevelState = 4
 	// The window is currently in a tiled layout and the left edge is
 	// considered to be adjacent to another part of the tiling grid.
-	ToplevelStateTiledLeft = 5
+	ToplevelStateTiledLeft ToplevelState = 5
 	// The window is currently in a tiled layout and the right edge is
 	// considered to be adjacent to another part of the tiling grid.
-	ToplevelStateTiledRight = 6
+	ToplevelStateTiledRight ToplevelState = 6
 	// The window is currently in a tiled layout and the top edge is
 	// considered to be adjacent to another part of the tiling grid.
-	ToplevelStateTiledTop = 7
+	ToplevelStateTiledTop ToplevelState = 7
 	// The window is currently in a tiled layout and the bottom edge is
 	// considered to be adjacent to another part of the tiling grid.
-	ToplevelStateTiledBottom = 8
+	ToplevelStateTiledBottom ToplevelState = 8
 )
 
 var toplevelInterface = &wlproto.Interface{
 	Name:    "xdg_toplevel",
-	Version: 2,
+	Version: 3,
 	Requests: []wlproto.Request{
 		{
 			Name:  "destroy",
@@ -833,7 +883,7 @@ var toplevelInterface = &wlproto.Interface{
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf((*wayland.Seat)(nil))},
 				{Type: wlproto.ArgTypeUint},
-				{Type: wlproto.ArgTypeUint},
+				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(ToplevelResizeEdge(0))},
 			},
 		},
 		{
@@ -1066,7 +1116,7 @@ func (obj *Toplevel) Move(seat *wayland.Seat, serial uint32) {
 // example when dragging the top left corner. The compositor may also
 // use this information to adapt its behavior, e.g. choose an
 // appropriate cursor image.
-func (obj *Toplevel) Resize(seat *wayland.Seat, serial uint32, edges uint32) {
+func (obj *Toplevel) Resize(seat *wayland.Seat, serial uint32, edges ToplevelResizeEdge) {
 	obj.Conn().SendRequest(obj, 6, seat, serial, edges)
 }
 
@@ -1254,14 +1304,16 @@ func (obj *Toplevel) SetMinimized() {
 	obj.Conn().SendRequest(obj, 13)
 }
 
+type PopupError uint32
+
 const (
 	// tried to grab after being mapped
-	PopupErrorInvalidGrab = 0
+	PopupErrorInvalidGrab PopupError = 0
 )
 
 var popupInterface = &wlproto.Interface{
 	Name:    "xdg_popup",
-	Version: 2,
+	Version: 3,
 	Requests: []wlproto.Request{
 		{
 			Name:  "destroy",
@@ -1275,6 +1327,15 @@ var popupInterface = &wlproto.Interface{
 			Since: 1,
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf((*wayland.Seat)(nil))},
+				{Type: wlproto.ArgTypeUint},
+			},
+		},
+		{
+			Name:  "reposition",
+			Type:  "",
+			Since: 3,
+			Args: []wlproto.Arg{
+				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf((*Positioner)(nil))},
 				{Type: wlproto.ArgTypeUint},
 			},
 		},
@@ -1294,6 +1355,13 @@ var popupInterface = &wlproto.Interface{
 			Name:  "popup_done",
 			Since: 1,
 			Args:  []wlproto.Arg{},
+		},
+		{
+			Name:  "repositioned",
+			Since: 3,
+			Args: []wlproto.Arg{
+				{Type: wlproto.ArgTypeUint},
+			},
 		},
 	},
 }
@@ -1320,12 +1388,6 @@ var popupInterface = &wlproto.Interface{
 // The parent of an xdg_popup must be mapped (see the xdg_surface
 // description) before the xdg_popup itself.
 //
-// The x and y arguments passed when creating the popup object specify
-// where the top left of the popup should be placed, relative to the
-// local surface coordinates of the parent surface. See
-// xdg_surface.get_popup. An xdg_popup must intersect with or be at least
-// partially adjacent to its parent surface.
-//
 // The client must call wl_surface.commit on the corresponding wl_surface
 // for the xdg_popup state to take effect.
 type Popup struct{ wlclient.Proxy }
@@ -1339,12 +1401,13 @@ func (obj *Popup) WithQueue(queue *wlclient.EventQueue) *Popup {
 }
 
 type PopupEvents struct {
-	Configure func(obj *Popup, x int32, y int32, width int32, height int32)
-	PopupDone func(obj *Popup)
+	Configure    func(obj *Popup, x int32, y int32, width int32, height int32)
+	PopupDone    func(obj *Popup)
+	Repositioned func(obj *Popup, token uint32)
 }
 
 func (obj *Popup) AddListener(listeners PopupEvents) {
-	obj.Proxy.SetListeners(listeners.Configure, listeners.PopupDone)
+	obj.Proxy.SetListeners(listeners.Configure, listeners.PopupDone, listeners.Repositioned)
 }
 
 // This destroys the popup. Explicitly destroying the xdg_popup
@@ -1399,4 +1462,31 @@ func (obj *Popup) Destroy() {
 // will always have keyboard focus.
 func (obj *Popup) Grab(seat *wayland.Seat, serial uint32) {
 	obj.Conn().SendRequest(obj, 1, seat, serial)
+}
+
+// Reposition an already-mapped popup. The popup will be placed given the
+// details in the passed xdg_positioner object, and a
+// xdg_popup.repositioned followed by xdg_popup.configure and
+// xdg_surface.configure will be emitted in response. Any parameters set
+// by the previous positioner will be discarded.
+//
+// The passed token will be sent in the corresponding
+// xdg_popup.repositioned event. The new popup position will not take
+// effect until the corresponding configure event is acknowledged by the
+// client. See xdg_popup.repositioned for details. The token itself is
+// opaque, and has no other special meaning.
+//
+// If multiple reposition requests are sent, the compositor may skip all
+// but the last one.
+//
+// If the popup is repositioned in response to a configure event for its
+// parent, the client should send an xdg_positioner.set_parent_configure
+// and possibly a xdg_positioner.set_parent_size request to allow the
+// compositor to properly constrain the popup.
+//
+// If the popup is repositioned together with a parent that is being
+// resized, but not in response to a configure event, the client should
+// send a xdg_positioner.set_parent_size request.
+func (obj *Popup) Reposition(positioner *Positioner, token uint32) {
+	obj.Conn().SendRequest(obj, 2, positioner, token)
 }

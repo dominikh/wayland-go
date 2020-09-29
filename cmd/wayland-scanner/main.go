@@ -101,7 +101,11 @@ func (b *Builder) typeName(name string) string {
 }
 
 func (b *Builder) eventsTypeName(iface elInterface) string {
-	return fmt.Sprintf("%sEvents", b.typeName(iface.Name))
+	if b.ServerMode {
+		return fmt.Sprintf("%sRequests", b.typeName(iface.Name))
+	} else {
+		return fmt.Sprintf("%sEvents", b.typeName(iface.Name))
+	}
 }
 
 // XXX check for reserved names
@@ -134,7 +138,7 @@ func (b *Builder) wlprotoInterfaceName(iface elInterface) string {
 	return goIdentifier(name) + "Interface"
 }
 
-func (b *Builder) wlprotoArg(arg elArg) string {
+func (b *Builder) wlprotoArg(arg elArg, ctx elInterface) string {
 	var typ string
 	switch arg.Type {
 	case "int":
@@ -157,33 +161,68 @@ func (b *Builder) wlprotoArg(arg elArg) string {
 		panic("XXX")
 	}
 	if arg.Interface == "" {
-		return fmt.Sprintf("{Type: wlproto.%s}", typ)
+		if arg.Enum == "" {
+			return fmt.Sprintf("{Type: wlproto.%s}", typ)
+		} else {
+			return fmt.Sprintf("{Type: wlproto.%s, Aux: reflect.TypeOf(%s(0))}", typ, b.goTypeFromWlType(arg, ctx))
+		}
 	} else {
-		return fmt.Sprintf("{Type: wlproto.%s, Aux: reflect.TypeOf((*%s)(nil))}", typ, b.qualifyTypeName(arg.Interface))
+		if b.ServerMode {
+			return fmt.Sprintf("{Type: wlproto.%s, Aux: reflect.TypeOf(%s{})}", typ, b.qualifyTypeName(arg.Interface))
+		} else {
+			return fmt.Sprintf("{Type: wlproto.%s, Aux: reflect.TypeOf((*%s)(nil))}", typ, b.qualifyTypeName(arg.Interface))
+		}
 	}
 }
 
-func (b *Builder) goTypeFromWlType(typ string, iface string) string {
+func (b *Builder) goTypeFromWlType(arg elArg, ctx elInterface) string {
+	typ := arg.Type
+	iface := arg.Interface
 	switch typ {
 	case "int":
 		return "int32"
 	case "uint":
-		return "uint32"
+		if arg.Enum != "" {
+			if strings.ContainsRune(arg.Enum, '.') {
+				parts := strings.SplitN(arg.Enum, ".", 2)
+				return b.typeName(parts[0]) + exportedGoIdentifier(parts[1])
+			} else {
+				return b.typeName(ctx.Name) + exportedGoIdentifier(arg.Enum)
+			}
+		} else {
+			return "uint32"
+		}
 	case "fixed":
-		return "wlclient.Fixed"
+		return "wlshared.Fixed"
 	case "string":
 		return "string"
 	case "object":
 		if iface != "" {
-			return "*" + b.qualifyTypeName(iface)
+			if b.ServerMode {
+				return b.qualifyTypeName(iface)
+			} else {
+				return "*" + b.qualifyTypeName(iface)
+			}
 		} else {
-			return "wlclient.Object"
+			if b.ServerMode {
+				return "wlserver.Object"
+			} else {
+				return "wlclient.Object"
+			}
 		}
 	case "new_id":
 		if iface != "" {
-			return "*" + b.qualifyTypeName(iface)
+			if b.ServerMode {
+				return b.qualifyTypeName(iface)
+			} else {
+				return "*" + b.qualifyTypeName(iface)
+			}
 		} else {
-			return "wlclient.Object"
+			if b.ServerMode {
+				return "wlserver.Object"
+			} else {
+				return "wlclient.Object"
+			}
 		}
 	case "array":
 		return "[]byte"
@@ -239,6 +278,7 @@ type Builder struct {
 	Interfaces map[string]*Package
 	Code       bytes.Buffer
 	Prefix     string
+	ServerMode bool
 }
 
 func (b *Builder) Write(data []byte) (int, error) {
@@ -274,6 +314,7 @@ func (b *Builder) printSpecs(out io.Writer) {
 			fmt.Fprintf(out, "\t%q\n", imp)
 		}
 		fmt.Fprintln(out, ")")
+		fmt.Fprintln(out, "var _ wlshared.Fixed\n") // make sure the import isn't unused
 	}
 
 	printMaps := func() {
@@ -310,10 +351,14 @@ func (b *Builder) printSpecs(out io.Writer) {
 		printEnums := func() {
 			for _, enum := range iface.Enums {
 				fmt.Fprintln(b, docString(enum.Description))
+				fmt.Fprintf(b, "type %s%s uint32\n\n", b.typeName(iface.Name), exportedGoIdentifier(enum.Name))
 				fmt.Fprintln(b, "const (")
 				for _, entry := range enum.Entries {
-					fmt.Fprintf(b, "\t%s\n", enumEntryDocString(entry))
-					fmt.Fprintf(b, "\t%s%s%s = %s\n", b.typeName(iface.Name), exportedGoIdentifier(enum.Name), exportedGoIdentifier(entry.Name), entry.Value)
+					doc := enumEntryDocString(entry)
+					if doc != "" {
+						fmt.Fprintf(b, "\t%s\n", doc)
+					}
+					fmt.Fprintf(b, "\t%[1]s%[2]s%[3]s %[1]s%[2]s = %[4]s\n", b.typeName(iface.Name), exportedGoIdentifier(enum.Name), exportedGoIdentifier(entry.Name), entry.Value)
 				}
 				fmt.Fprintln(b, ")")
 			}
@@ -323,6 +368,9 @@ func (b *Builder) printSpecs(out io.Writer) {
 			fmt.Fprintf(b, "var %s = &wlproto.Interface{\n", b.wlprotoInterfaceName(iface))
 			fmt.Fprintf(b, "\tName: %q,\n", iface.Name)
 			fmt.Fprintf(b, "\tVersion: %s,\n", iface.Version)
+			if b.ServerMode {
+				fmt.Fprintf(b, "\tType: reflect.TypeOf(%s{}),\n", b.typeName(iface.Name))
+			}
 
 			fmt.Fprintln(b, "\tRequests: []wlproto.Request{")
 			for _, req := range iface.Requests {
@@ -334,9 +382,13 @@ func (b *Builder) printSpecs(out io.Writer) {
 				fmt.Fprintf(b, "\t\t\tType: %q,\n", req.Type)
 				fmt.Fprintf(b, "\t\t\tSince: %s,\n", req.Since)
 
+				if b.ServerMode {
+					fmt.Fprintf(b, "Method: reflect.ValueOf(%s.%s),\n", b.eventsTypeName(iface), exportedGoIdentifier(req.Name))
+				}
+
 				fmt.Fprintln(b, "\t\t\tArgs: []wlproto.Arg{")
 				for _, arg := range req.Args {
-					fmt.Fprintf(b, "\t\t\t\t%s,\n", b.wlprotoArg(arg))
+					fmt.Fprintf(b, "\t\t\t\t%s,\n", b.wlprotoArg(arg, iface))
 				}
 				fmt.Fprintln(b, "\t\t\t},")
 
@@ -355,7 +407,7 @@ func (b *Builder) printSpecs(out io.Writer) {
 
 				fmt.Fprintln(b, "\t\t\tArgs: []wlproto.Arg{")
 				for _, arg := range ev.Args {
-					fmt.Fprintf(b, "\t\t\t\t%s,\n", b.wlprotoArg(arg))
+					fmt.Fprintf(b, "\t\t\t\t%s,\n", b.wlprotoArg(arg, iface))
 				}
 				fmt.Fprintln(b, "\t\t\t},")
 
@@ -367,103 +419,168 @@ func (b *Builder) printSpecs(out io.Writer) {
 		}
 
 		printInterfaceEventsType := func() {
-			fmt.Fprintf(b, "type %s struct {\n", b.eventsTypeName(iface))
-			for _, ev := range iface.Events {
-				fmt.Fprintf(b, "\t%s func(obj *%s,", exportedGoIdentifier(ev.Name), b.typeName(iface.Name))
-				for _, arg := range ev.Args {
-					fmt.Fprintf(b, "%s %s,", goIdentifier(arg.Name), b.goTypeFromWlType(arg.Type, arg.Interface))
+			if b.ServerMode {
+				fmt.Fprintf(b, "type %s interface {\n", b.eventsTypeName(iface))
+				for _, req := range iface.Requests {
+					fmt.Fprintf(b, "\t%s(obj %s,", exportedGoIdentifier(req.Name), b.typeName(iface.Name))
+					for _, arg := range req.Args {
+						fmt.Fprintf(b, "%s %s,", goIdentifier(arg.Name), b.goTypeFromWlType(arg, iface))
+					}
+					fmt.Fprintln(b, ")")
 				}
-				fmt.Fprintln(b, ")")
+				fmt.Fprintln(b, "\tOnDestroy(wlserver.Object)")
+				fmt.Fprint(b, "}\n\n")
+			} else {
+				fmt.Fprintf(b, "type %s struct {\n", b.eventsTypeName(iface))
+				for _, ev := range iface.Events {
+					fmt.Fprintf(b, "\t%s func(obj *%s,", exportedGoIdentifier(ev.Name), b.typeName(iface.Name))
+					for _, arg := range ev.Args {
+						fmt.Fprintf(b, "%s %s,", goIdentifier(arg.Name), b.goTypeFromWlType(arg, iface))
+					}
+					fmt.Fprintln(b, ")")
+				}
+				fmt.Fprint(b, "}\n\n")
 			}
-			fmt.Fprint(b, "}\n\n")
 		}
 
 		printInterfaceType := func() {
 			fmt.Fprintln(b, docString(iface.Description))
-			fmt.Fprintf(b, "type %s struct { wlclient.Proxy }\n\n", b.typeName(iface.Name))
+			if b.ServerMode {
+				fmt.Fprintf(b, "type %s struct { wlserver.Resource }\n\n", b.typeName(iface.Name))
+				fmt.Fprintf(b, "func (%s) Interface() *wlproto.Interface { return %s }\n\n", b.typeName(iface.Name), b.wlprotoInterfaceName(iface))
+			} else {
+				fmt.Fprintf(b, "type %s struct { wlclient.Proxy }\n\n", b.typeName(iface.Name))
+				fmt.Fprintf(b, "func (*%s) Interface() *wlproto.Interface { return %s }\n\n", b.typeName(iface.Name), b.wlprotoInterfaceName(iface))
+			}
 
 			// basic methods
-			fmt.Fprintf(b, "func (*%s) Interface() *wlproto.Interface { return %s }\n\n", b.typeName(iface.Name), b.wlprotoInterfaceName(iface))
 
-			fmt.Fprintf(b, "func (obj *%[1]s) WithQueue(queue *wlclient.EventQueue) *%[1]s {\n", b.typeName(iface.Name))
-			fmt.Fprintf(b, "\twobj := &%s{}\n", b.typeName(iface.Name))
-			fmt.Fprintf(b, "\tobj.Conn().NewWrapper(obj, wobj, queue)\n")
-			fmt.Fprintf(b, "\treturn wobj\n")
-			fmt.Fprintf(b, "}\n\n")
+			if !b.ServerMode {
+				fmt.Fprintf(b, "func (obj *%[1]s) WithQueue(queue *wlclient.EventQueue) *%[1]s {\n", b.typeName(iface.Name))
+				fmt.Fprintf(b, "\twobj := &%s{}\n", b.typeName(iface.Name))
+				fmt.Fprintf(b, "\tobj.Conn().NewWrapper(obj, wobj, queue)\n")
+				fmt.Fprintf(b, "\treturn wobj\n")
+				fmt.Fprintf(b, "}\n\n")
+			}
 
 			printInterfaceEventsType()
-			fmt.Fprintf(b, "func (obj *%s) AddListener(listeners %s) {\n", b.typeName(iface.Name), b.eventsTypeName(iface))
-			fmt.Fprint(b, "\tobj.Proxy.SetListeners(")
-			for _, ev := range iface.Events {
-				fmt.Fprintf(b, "listeners.%s,", exportedGoIdentifier(ev.Name))
+			if b.ServerMode {
+				fmt.Fprintf(b, "func (obj %s) SetImplementation(impl %s) {\n", b.typeName(iface.Name), b.eventsTypeName(iface))
+				fmt.Fprintln(b, "\tobj.Resource.SetImplementation(impl)")
+				fmt.Fprint(b, "}\n\n")
+			} else {
+				fmt.Fprintf(b, "func (obj *%s) AddListener(listeners %s) {\n", b.typeName(iface.Name), b.eventsTypeName(iface))
+				fmt.Fprint(b, "\tobj.Proxy.SetListeners(")
+				for _, ev := range iface.Events {
+					fmt.Fprintf(b, "listeners.%s,", exportedGoIdentifier(ev.Name))
+				}
+				fmt.Fprintln(b, ")")
+				fmt.Fprint(b, "}\n\n")
 			}
-			fmt.Fprintln(b, ")")
+		}
+
+		printMethod := func(ireq int, desc elDescription, name string, args []elArg, typ string) {
+			var ctor elArg
+			fmt.Fprintln(b, docString(desc))
+			if b.ServerMode {
+				fmt.Fprintf(b, "func (obj %s) %s(", b.typeName(iface.Name), exportedGoIdentifier(name))
+			} else {
+				fmt.Fprintf(b, "func (obj *%s) %s(", b.typeName(iface.Name), exportedGoIdentifier(name))
+			}
+			for _, arg := range args {
+				if arg.Type == "new_id" {
+					ctor = arg
+					if arg.Interface == "" {
+						fmt.Fprintf(b, "%s %s, version uint32,", goIdentifier(arg.Name), b.goTypeFromWlType(arg, iface))
+					} else if b.ServerMode {
+						fmt.Fprintf(b, "%s %s,", goIdentifier(arg.Name), b.goTypeFromWlType(arg, iface))
+					}
+				} else {
+					fmt.Fprintf(b, "%s %s,", goIdentifier(arg.Name), b.goTypeFromWlType(arg, iface))
+				}
+			}
+			fmt.Fprint(b, ")")
+
+			if !b.ServerMode {
+				if ctor.Interface != "" {
+					fmt.Fprintf(b, "*%s", b.typeName(ctor.Interface))
+				}
+			}
+
+			fmt.Fprintln(b, "{")
+			if b.ServerMode {
+				fmt.Fprintf(b, "obj.Conn().SendEvent(obj, %d, ", ireq)
+				for _, arg := range args {
+					if arg.Type == "new_id" {
+						if ctor.Interface == "" {
+							fmt.Fprintf(b, "%[1]s.Interface().Name, version, %[1]s,", goIdentifier(ctor.Name))
+						} else {
+							fmt.Fprintf(b, "%s,", goIdentifier(arg.Name))
+						}
+					} else {
+						fmt.Fprintf(b, "%s,", goIdentifier(arg.Name))
+					}
+				}
+				fmt.Fprintln(b, ")")
+			} else {
+				if ctor.Interface != "" {
+					fmt.Fprintf(b, "\t_ret := &%s{}\n", b.typeName(ctor.Interface))
+					fmt.Fprintln(b, "\tobj.Conn().NewProxy(0, _ret, obj.Queue())")
+				}
+
+				if typ == "destructor" {
+					fmt.Fprintf(b, "\tobj.Conn().SendDestructor(obj, %d, ", ireq)
+				} else {
+					fmt.Fprintf(b, "\tobj.Conn().SendRequest(obj, %d, ", ireq)
+				}
+				for _, arg := range args {
+					if arg.Type == "new_id" {
+						if ctor.Interface == "" {
+							fmt.Fprintf(b, "%[1]s.Interface().Name, version, %[1]s,", goIdentifier(ctor.Name))
+						} else {
+							fmt.Fprint(b, "_ret,")
+						}
+					} else {
+						fmt.Fprintf(b, "%s,", goIdentifier(arg.Name))
+					}
+				}
+				fmt.Fprintln(b, ")")
+
+				if ctor.Interface != "" {
+					fmt.Fprintln(b, "\treturn _ret")
+				}
+			}
+
 			fmt.Fprint(b, "}\n\n")
 		}
 
 		printRequest := func(ireq int, req elRequest) {
-			var ctor elArg
-			fmt.Fprintln(b, docString(req.Description))
-			fmt.Fprintf(b, "func (obj *%s) %s(", b.typeName(iface.Name), exportedGoIdentifier(req.Name))
-			for _, arg := range req.Args {
-				if arg.Type == "new_id" {
-					ctor = arg
-					if arg.Interface == "" {
-						fmt.Fprintf(b, "%s %s, version uint32,", goIdentifier(arg.Name), b.goTypeFromWlType(arg.Type, arg.Interface))
-					}
-				} else {
-					fmt.Fprintf(b, "%s %s,", goIdentifier(arg.Name), b.goTypeFromWlType(arg.Type, arg.Interface))
-				}
-			}
-			fmt.Fprint(b, ")")
-			if ctor.Interface != "" {
-				fmt.Fprintf(b, "*%s", b.typeName(ctor.Interface))
-			}
+			printMethod(ireq, req.Description, req.Name, req.Args, req.Type)
+		}
 
-			fmt.Fprintln(b, "{")
-			if ctor.Interface != "" {
-				fmt.Fprintf(b, "\t_ret := &%s{}\n", b.typeName(ctor.Interface))
-				fmt.Fprintln(b, "\tobj.Conn().NewProxy(0, _ret, obj.Queue())")
-			}
-
-			if req.Type == "destructor" {
-				fmt.Fprintf(b, "\tobj.Conn().SendDestructor(obj, %d, ", ireq)
-			} else {
-				fmt.Fprintf(b, "\tobj.Conn().SendRequest(obj, %d, ", ireq)
-			}
-			for _, arg := range req.Args {
-				if arg.Type == "new_id" {
-					if ctor.Interface == "" {
-						fmt.Fprintf(b, "%[1]s.Interface().Name, version, %[1]s,", goIdentifier(ctor.Name))
-					} else {
-						fmt.Fprint(b, "_ret,")
-					}
-				} else {
-					fmt.Fprintf(b, "%s,", goIdentifier(arg.Name))
-				}
-			}
-			fmt.Fprintln(b, ")")
-
-			if ctor.Interface != "" {
-				fmt.Fprintln(b, "\treturn _ret")
-			}
-
-			fmt.Fprint(b, "}\n\n")
+		printEvent := func(ireq int, ev elEvent) {
+			printMethod(ireq, ev.Description, ev.Name, ev.Args, "")
 		}
 
 		printEnums()
 		printInterfaceVar()
 		printInterfaceType()
 
-		hasDestroy := false
-		for ireq, req := range iface.Requests {
-			if req.Name == "destroy" {
-				hasDestroy = true
+		if b.ServerMode {
+			for iev, ev := range iface.Events {
+				printEvent(iev, ev)
 			}
-			printRequest(ireq, req)
-		}
-		if !hasDestroy {
-			fmt.Fprintf(b, "func (obj *%s) Destroy() { obj.Conn().Destroy(obj) }\n\n", b.typeName(iface.Name))
+		} else {
+			hasDestroy := false
+			for ireq, req := range iface.Requests {
+				if req.Name == "destroy" {
+					hasDestroy = true
+				}
+				printRequest(ireq, req)
+			}
+			if !hasDestroy {
+				fmt.Fprintf(b, "func (obj *%s) Destroy() { obj.Conn().Destroy(obj) }\n\n", b.typeName(iface.Name))
+			}
 		}
 	}
 
@@ -476,7 +593,7 @@ func (b *Builder) printSpecs(out io.Writer) {
 		printInterface(iface)
 	}
 
-	if b.Spec.Name == "wayland" {
+	if b.Spec.Name == "wayland" && !b.ServerMode {
 		fmt.Fprintln(b, "func GetDisplay(conn *wlclient.Conn) *Display { _ret := &Display{}; conn.NewProxy(1, _ret, nil); return _ret }")
 	}
 
@@ -497,14 +614,20 @@ func (imps *imports) Set(s string) error {
 	return nil
 }
 
-func Build(file string, imports []string, prefix string, out io.Writer) {
+func Build(file string, imports []string, prefix string, out io.Writer, serverMode bool) {
 	b := &Builder{
 		Imports: map[string]bool{
 			"reflect":                       true,
-			"honnef.co/go/wayland/wlclient": true,
+			"honnef.co/go/wayland/wlshared": true,
 			"honnef.co/go/wayland/wlproto":  true,
 		},
-		Prefix: prefix,
+		Prefix:     prefix,
+		ServerMode: serverMode,
+	}
+	if b.ServerMode {
+		b.Imports["honnef.co/go/wayland/wlserver"] = true
+	} else {
+		b.Imports["honnef.co/go/wayland/wlclient"] = true
 	}
 
 	if len(imports) > 0 {
@@ -528,6 +651,7 @@ func Build(file string, imports []string, prefix string, out io.Writer) {
 	b.printSpecs(&buf)
 	d, err := format.Source(buf.Bytes())
 	if err != nil {
+		out.Write(buf.Bytes())
 		log.Fatal(err)
 	}
 	out.Write(d)
@@ -537,7 +661,8 @@ func main() {
 	var imps imports
 	flag.Var(&imps, "i", "XXX")
 	prefix := flag.String("prefix", "", "XXX")
+	mode := flag.String("mode", "client", "client or server")
 	flag.Parse()
 
-	Build(flag.Args()[0], imps, *prefix, os.Stdout)
+	Build(flag.Args()[0], imps, *prefix, os.Stdout, *mode == "server")
 }

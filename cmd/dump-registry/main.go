@@ -5,7 +5,7 @@ import (
 	"net"
 
 	"honnef.co/go/wayland/wlclient"
-	"honnef.co/go/wayland/protocols/wayland"
+	"honnef.co/go/wayland/wlclient/protocols/wayland"
 )
 
 func roundtrip(dsp *wayland.Display) {
@@ -31,10 +31,7 @@ func main() {
 	}
 	c := wlclient.NewConn(uc.(*net.UnixConn))
 
-	// ID 1 is "special" and refers to the Display. no nice API for it
-	// yet, hence explicit call to NewProxy.
-	dsp := &wayland.Display{}
-	c.NewProxy(1, dsp, nil)
+	dsp := wayland.GetDisplay(c)
 
 	registry := dsp.GetRegistry()
 	registry.AddListener(wayland.RegistryEvents{

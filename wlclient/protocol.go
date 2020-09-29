@@ -62,7 +62,6 @@ package wlclient
 
 import (
 	"encoding/binary"
-	"fmt"
 	"net"
 	"reflect"
 	"sync"
@@ -70,27 +69,16 @@ import (
 	"unsafe"
 
 	"honnef.co/go/wayland/wlproto"
+	"honnef.co/go/wayland/wlshared"
 )
 
-type Fixed uint32
-
-func (f Fixed) Float64() float64 {
-	panic("XXX")
-}
-
-func FromFloat64(f float64) Fixed {
-	panic("XXX")
-}
-
-type ObjectID uint32
-type NewID uint32
-
 type Object interface {
-	ID() ObjectID
+	wlshared.Object
 	Conn() *Conn
 	Interface() *wlproto.Interface
 	GetProxy() *Proxy
 	Queue() *EventQueue
+	EventHandlers() []interface{}
 }
 
 var byteOrder binary.ByteOrder
@@ -114,7 +102,7 @@ func init() {
 // Proxy, and user-level code will primarily interact with these
 // wrapper types.
 type Proxy struct {
-	id            ObjectID
+	id            wlshared.ObjectID
 	conn          *Conn
 	eventHandlers []interface{}
 	queue         *EventQueue
@@ -124,7 +112,7 @@ type Proxy struct {
 func (p *Proxy) GetProxy() *Proxy { return p }
 
 // ID returns the object's ID.
-func (p *Proxy) ID() ObjectID { return p.id }
+func (p *Proxy) ID() wlshared.ObjectID { return p.id }
 
 // Conn returns the connection the object belongs to.
 func (p *Proxy) Conn() *Conn { return p.conn }
@@ -132,18 +120,14 @@ func (p *Proxy) Conn() *Conn { return p.conn }
 // Queue returns the object's event queue.
 func (p *Proxy) Queue() *EventQueue { return p.queue }
 
+func (p *Proxy) EventHandlers() []interface{} { return p.eventHandlers }
+
 // SetListeners sets the event callbacks associated with the proxy.
 //
 // This is a function provided for use by generated code.
 // User-level code should use generated AddListener methods instead.
 func (p *Proxy) SetListeners(listeners ...interface{}) {
 	copy(p.eventHandlers, listeners)
-}
-
-type event struct {
-	obj  Object
-	ev   int
-	args []reflect.Value
 }
 
 type object struct {
@@ -156,14 +140,60 @@ const (
 	objectKindZombie = iota + 1
 )
 
+type EventQueue struct {
+	// signals the availability of events
+	ch chan struct{}
+
+	mu     sync.Mutex
+	events []Event
+}
+
+func NewEventQueue() *EventQueue {
+	return &EventQueue{
+		ch: make(chan struct{}, 1),
+	}
+}
+
+func (q *EventQueue) Push(ev Event) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	q.events = append(q.events, ev)
+	select {
+	case q.ch <- struct{}{}:
+	default:
+	}
+}
+
+func (q *EventQueue) Dispatch() {
+	<-q.ch
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for _, ev := range q.events {
+		handlers := ev.Obj.EventHandlers()
+		cb := handlers[ev.Ev]
+		if cb != nil {
+			args := []reflect.Value{reflect.ValueOf(ev.Obj)}
+			args = append(args, ev.Args...)
+			reflect.ValueOf(cb).Call(args)
+		}
+	}
+	q.events = q.events[:0]
+}
+
+type Event struct {
+	Obj  Object
+	Ev   int
+	Args []reflect.Value
+}
+
 type Conn struct {
 	debug        bool
 	defaultQueue *EventQueue
 
 	mu      sync.Mutex
 	rw      *net.UnixConn
-	objects map[ObjectID]object
-	maxID   ObjectID
+	objects map[wlshared.ObjectID]object
+	maxID   wlshared.ObjectID
 	sendBuf []byte
 
 	data []byte
@@ -173,7 +203,7 @@ type Conn struct {
 func NewConn(rw *net.UnixConn) *Conn {
 	c := &Conn{
 		rw:           rw,
-		objects:      map[ObjectID]object{},
+		objects:      map[wlshared.ObjectID]object{},
 		debug:        true,
 		defaultQueue: NewEventQueue(),
 		maxID:        1,
@@ -198,7 +228,7 @@ func (c *Conn) NewWrapper(obj Object, wrapper Object, queue *EventQueue) {
 
 // NewProxy initialized the proxy in obj with the given id and queue.
 // If queue is nil, the connection's default queue will be used.
-func (c *Conn) NewProxy(id ObjectID, obj Object, queue *EventQueue) {
+func (c *Conn) NewProxy(id wlshared.ObjectID, obj Object, queue *EventQueue) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -269,36 +299,8 @@ func (c *Conn) SendRequest(source Object, request int, args ...interface{}) {
 }
 
 func (c *Conn) sendRequest(source Object, request int, args ...interface{}) {
-	buf := c.sendBuf[:0]
-	buf = append(buf, 0, 0, 0, 0, 0, 0, 0, 0)
-	var scratch [4]byte
-
-	var fds []int
 	for _, arg := range args {
-		switch arg := arg.(type) {
-		case int32:
-			byteOrder.PutUint32(scratch[:], uint32(arg))
-			buf = append(buf, scratch[:]...)
-		case uint32:
-			byteOrder.PutUint32(scratch[:], arg)
-			buf = append(buf, scratch[:]...)
-		case Fixed:
-			byteOrder.PutUint32(scratch[:], uint32(arg))
-			buf = append(buf, scratch[:]...)
-		case string:
-			byteOrder.PutUint32(scratch[:], uint32(len(arg)+1))
-			buf = append(buf, scratch[:]...)
-			buf = append(buf, arg...)
-			buf = append(buf, 0)
-			m := len(arg) + 1
-			n := (m + 3) & ^3
-			for i := n - m; i > 0; i-- {
-				buf = append(buf, 0)
-			}
-			// XXX array
-		case uintptr:
-			fds = append(fds, int(arg))
-		case Object:
+		if arg, ok := arg.(Object); ok {
 			id := arg.ID()
 			if id == 0 {
 				c.maxID++
@@ -317,22 +319,13 @@ func (c *Conn) sendRequest(source Object, request int, args ...interface{}) {
 				}
 				c.objects[id] = object{obj: arg}
 			}
-			byteOrder.PutUint32(scratch[:], uint32(id))
-			buf = append(buf, scratch[:]...)
-		default:
-			panic(fmt.Sprintf("internal error: unhandled type %T", arg))
 		}
 	}
-	byteOrder.PutUint32(buf[0:4], uint32(source.ID()))
-	byteOrder.PutUint16(buf[4:6], uint16(request))
-	byteOrder.PutUint16(buf[6:8], uint16(len(buf)))
 
+	buf := c.sendBuf[:0]
 	var oob []byte
-	if len(fds) > 0 {
-		// OPT(dh): we send file descriptors so rarely that allocating
-		// here isn't an issue.
-		oob = syscall.UnixRights(fds...)
-	}
+	buf, oob = wlshared.EncodeRequest(buf, source.ID(), request, args)
+
 	c.rw.WriteMsgUnix(buf, oob, nil)
 
 	c.sendBuf = buf[:0]
@@ -370,13 +363,14 @@ func (c *Conn) readAtLeast(n int) {
 func (c *Conn) readLoop() {
 	for {
 		c.readAtLeast(8)
-		sender := ObjectID(byteOrder.Uint32(c.data[0:4]))
+		sender := wlshared.ObjectID(byteOrder.Uint32(c.data[0:4]))
 		h := byteOrder.Uint32(c.data[4:8])
 		size := (h & 0xFFFF0000) >> 16
 		if size < 8 {
 			// XXX invalid size
 		}
 		size -= 8
+		// XXX guard against invalid opcodes
 		opcode := h & 0x0000FFFF
 		c.data = c.data[8:]
 		c.readAtLeast(int(size))
@@ -408,33 +402,15 @@ func (c *Conn) readLoop() {
 		sig := obj.Interface().Events[opcode].Args
 		args := make([]reflect.Value, len(sig))
 		for i, arg := range sig {
-			var num uint32
-			if arg.Type != wlproto.ArgTypeFd {
-				num = byteOrder.Uint32(d[off:])
-				off += 4
-			}
+			newOff, argv := wlshared.ParseArgument(arg, d, off)
+			off = newOff
+
 			switch arg.Type {
-			case wlproto.ArgTypeInt:
-				args[i] = reflect.ValueOf(int32(num))
-			case wlproto.ArgTypeUint:
-				args[i] = reflect.ValueOf(uint32(num))
-			case wlproto.ArgTypeFixed:
-				args[i] = reflect.ValueOf(Fixed(num))
-			case wlproto.ArgTypeString:
-				s := string(d[off : off+int(num)-1])
-				args[i] = reflect.ValueOf(s)
-				off += int(num)
-				off = (off + 3) & ^3
 			case wlproto.ArgTypeObject:
 				c.mu.Lock()
-				args[i] = reflect.ValueOf(c.objects[ObjectID(num)])
+				// XXX guard against invalid object id
+				args[i] = reflect.ValueOf(c.objects[argv.(wlshared.ObjectID)])
 				c.mu.Unlock()
-			case wlproto.ArgTypeArray:
-				// XXX copy out the data, probably
-				b := d[off : off+int(num)]
-				args[i] = reflect.ValueOf(b)
-				off += int(num)
-				off = (off + 3) &^ 3
 			case wlproto.ArgTypeFd:
 				fd := c.fds[0]
 				copy(c.fds, c.fds[1:])
@@ -444,12 +420,12 @@ func (c *Conn) readLoop() {
 				// XXX verify that the new ID isn't already in use
 				// XXX verify that the new ID is in the server's ID space
 				v := reflect.New(arg.Aux.Elem()).Interface().(Object)
-				c.NewProxy(ObjectID(num), v, obj.Queue())
+				c.NewProxy(argv.(wlshared.ObjectID), v, obj.Queue())
 				c.mu.Lock()
-				c.objects[ObjectID(num)] = object{obj: v}
+				c.objects[argv.(wlshared.ObjectID)] = object{obj: v}
 				c.mu.Unlock()
 			default:
-				panic("unreachable")
+				args[i] = reflect.ValueOf(argv)
 			}
 		}
 
@@ -460,10 +436,10 @@ func (c *Conn) readLoop() {
 			// For example, wl_callback gets destroyed by the server
 			// once it has fired.
 			c.mu.Lock()
-			id := ObjectID(args[0].Uint())
+			id := wlshared.ObjectID(args[0].Uint())
 			delete(c.objects, id)
 			c.mu.Unlock()
 		}
-		obj.GetProxy().queue.push(event{obj, int(opcode), args})
+		obj.GetProxy().queue.Push(Event{obj, int(opcode), args})
 	}
 }

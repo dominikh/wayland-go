@@ -8,8 +8,8 @@ import (
 
 	"golang.org/x/sys/unix"
 	"honnef.co/go/wayland/wlclient"
-	"honnef.co/go/wayland/protocols/wayland"
-	"honnef.co/go/wayland/protocols/xdg-shell"
+	"honnef.co/go/wayland/wlclient/protocols/wayland"
+	xdgShell "honnef.co/go/wayland/wlclient/protocols/xdg-shell"
 )
 
 type Display struct {
@@ -73,7 +73,7 @@ func createDisplay(c *wlclient.Conn) *Display {
 				dsp.shm = &wayland.Shm{}
 				dsp.registry.Bind(name, dsp.shm, 1)
 				dsp.shm.AddListener(wayland.ShmEvents{
-					Format: func(obj *wayland.Shm, format uint32) {
+					Format: func(obj *wayland.Shm, format wayland.ShmFormat) {
 						if format == wayland.ShmFormatXrgb8888 {
 							dsp.hasXRGB = true
 						}
@@ -174,7 +174,7 @@ func windowNextBuffer(win *Window) *Buffer {
 	return buf
 }
 
-func createShmBuffer(dsp *Display, buf *Buffer, width, height int32, format uint32) {
+func createShmBuffer(dsp *Display, buf *Buffer, width, height int32, format wayland.ShmFormat) {
 	stride := width * 4
 	size := stride * height
 	fd, err := unix.MemfdCreate("", 0)

@@ -5,6 +5,7 @@ import "reflect"
 type Interface struct {
 	Name     string
 	Version  uint32
+	Type     reflect.Type
 	Requests []Request
 	Events   []Event
 }
@@ -28,10 +29,11 @@ const (
 )
 
 type Request struct {
-	Name  string
-	Type  string
-	Since uint32
-	Args  []Arg
+	Name   string
+	Method reflect.Value
+	Type   string
+	Since  uint32
+	Args   []Arg
 }
 
 type Event struct {
