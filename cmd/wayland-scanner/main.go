@@ -423,10 +423,19 @@ func (b *Builder) printSpecs(out io.Writer) {
 				fmt.Fprintf(b, "type %s interface {\n", b.eventsTypeName(iface))
 				for _, req := range iface.Requests {
 					fmt.Fprintf(b, "%s(obj %s,", exportedGoIdentifier(req.Name), b.typeName(iface.Name))
+
+					var rets []string
 					for _, arg := range req.Args {
 						fmt.Fprintf(b, "%s %s,", goIdentifier(arg.Name), b.goTypeFromWlType(arg, iface))
+						if arg.Type == "new_id" {
+							if arg.Interface == "" {
+								rets = append(rets, "wlserver.ResourceImplementation")
+							} else {
+								rets = append(rets, b.goTypeFromWlType(arg, iface)+"Requests")
+							}
+						}
 					}
-					fmt.Fprintln(b, ")")
+					fmt.Fprintf(b, ") (%s)\n", strings.Join(rets, ","))
 				}
 				fmt.Fprintln(b, "OnDestroy(wlserver.Object)")
 				fmt.Fprint(b, "}\n\n")
@@ -464,11 +473,7 @@ func (b *Builder) printSpecs(out io.Writer) {
 			}
 
 			printInterfaceEventsType()
-			if b.ServerMode {
-				fmt.Fprintf(b, "func (obj %s) SetImplementation(impl %s) {\n", b.typeName(iface.Name), b.eventsTypeName(iface))
-				fmt.Fprintln(b, "obj.Resource.SetImplementation(impl)")
-				fmt.Fprint(b, "}\n\n")
-			} else {
+			if !b.ServerMode {
 				fmt.Fprintf(b, "func (obj *%s) AddListener(listeners %s) {\n", b.typeName(iface.Name), b.eventsTypeName(iface))
 				fmt.Fprint(b, "obj.Proxy.SetListeners(")
 				for _, ev := range iface.Events {

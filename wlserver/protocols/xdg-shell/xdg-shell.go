@@ -158,14 +158,10 @@ func (WmBase) Interface() *wlproto.Interface { return wmBaseInterface }
 
 type WmBaseRequests interface {
 	Destroy(obj WmBase)
-	CreatePositioner(obj WmBase, id Positioner)
-	GetXdgSurface(obj WmBase, id Surface, surface wayland.Surface)
+	CreatePositioner(obj WmBase, id Positioner) PositionerRequests
+	GetXdgSurface(obj WmBase, id Surface, surface wayland.Surface) SurfaceRequests
 	Pong(obj WmBase, serial uint32)
 	OnDestroy(wlserver.Object)
-}
-
-func (obj WmBase) SetImplementation(impl WmBaseRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 // The ping event asks the client if it's still alive. Pass the
@@ -426,10 +422,6 @@ type PositionerRequests interface {
 	OnDestroy(wlserver.Object)
 }
 
-func (obj Positioner) SetImplementation(impl PositionerRequests) {
-	obj.Resource.SetImplementation(impl)
-}
-
 type SurfaceError uint32
 
 const (
@@ -548,15 +540,11 @@ func (Surface) Interface() *wlproto.Interface { return surfaceInterface }
 
 type SurfaceRequests interface {
 	Destroy(obj Surface)
-	GetToplevel(obj Surface, id Toplevel)
-	GetPopup(obj Surface, id Popup, parent Surface, positioner Positioner)
+	GetToplevel(obj Surface, id Toplevel) ToplevelRequests
+	GetPopup(obj Surface, id Popup, parent Surface, positioner Positioner) PopupRequests
 	SetWindowGeometry(obj Surface, x int32, y int32, width int32, height int32)
 	AckConfigure(obj Surface, serial uint32)
 	OnDestroy(wlserver.Object)
-}
-
-func (obj Surface) SetImplementation(impl SurfaceRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 // The configure event marks the end of a configure sequence. A configure
@@ -823,10 +811,6 @@ type ToplevelRequests interface {
 	OnDestroy(wlserver.Object)
 }
 
-func (obj Toplevel) SetImplementation(impl ToplevelRequests) {
-	obj.Resource.SetImplementation(impl)
-}
-
 // This configure event asks the client to resize its toplevel surface or
 // to change its state. The configured state should not be applied
 // immediately. See xdg_surface.configure for details.
@@ -961,10 +945,6 @@ type PopupRequests interface {
 	Grab(obj Popup, seat wayland.Seat, serial uint32)
 	Reposition(obj Popup, positioner Positioner, token uint32)
 	OnDestroy(wlserver.Object)
-}
-
-func (obj Popup) SetImplementation(impl PopupRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 // This event asks the popup surface to configure itself given the

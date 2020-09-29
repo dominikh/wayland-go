@@ -19,12 +19,12 @@ import (
 )
 
 type Keyboard struct {
-	RepeatRate  int
-	RepeatDelay int
+	RepeatRate  int32
+	RepeatDelay int32
 }
 
 func (k *Keyboard) Init(id wayland.Keyboard) {
-	id.RepeatInfo(1234, 5678)
+	id.RepeatInfo(k.RepeatRate, k.RepeatDelay)
 	id.Keymap(wayland.KeyboardKeymapFormatNoKeymap, 0, 0)
 }
 
@@ -39,21 +39,26 @@ type Seat struct {
 
 func (*Seat) Interface() (*wlproto.Interface, int) { return wayland.Seat{}.Interface(), 5 }
 
-func (s *Seat) OnBind(res wlserver.Object) {
+func (s *Seat) OnBind(res wlserver.Object) wlserver.ResourceImplementation {
 	s.resources[res] = struct{}{}
 
 	sres := res.(wayland.Seat)
-	sres.SetImplementation(s)
 	sres.Capabilities(wayland.SeatCapabilityKeyboard)
 	sres.Name("a nice seat")
+
+	return s
 }
 
-func (s *Seat) GetPointer(obj wayland.Seat, id wayland.Pointer) { panic("not implemented") }
-func (s *Seat) GetTouch(obj wayland.Seat, id wayland.Touch)     { panic("not implemented") }
+func (s *Seat) GetPointer(obj wayland.Seat, id wayland.Pointer) wayland.PointerRequests {
+	panic("not implemented")
+}
+func (s *Seat) GetTouch(obj wayland.Seat, id wayland.Touch) wayland.TouchRequests {
+	panic("not implemented")
+}
 
-func (s *Seat) GetKeyboard(obj wayland.Seat, id wayland.Keyboard) {
-	id.SetImplementation(s.keyboard)
+func (s *Seat) GetKeyboard(obj wayland.Seat, id wayland.Keyboard) wayland.KeyboardRequests {
 	s.keyboard.Init(id)
+	return s.keyboard
 }
 
 func (s *Seat) Release(obj wayland.Seat) {
@@ -74,7 +79,7 @@ func main() {
 
 	seat := &Seat{
 		resources: map[wlserver.Object]struct{}{},
-		keyboard:  &Keyboard{},
+		keyboard:  &Keyboard{4444, 8888},
 	}
 	dsp.AddGlobal(seat)
 

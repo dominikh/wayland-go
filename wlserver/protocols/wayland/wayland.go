@@ -253,13 +253,9 @@ type Display struct{ wlserver.Resource }
 func (Display) Interface() *wlproto.Interface { return displayInterface }
 
 type DisplayRequests interface {
-	Sync(obj Display, callback Callback)
-	GetRegistry(obj Display, registry Registry)
+	Sync(obj Display, callback Callback) CallbackRequests
+	GetRegistry(obj Display, registry Registry) RegistryRequests
 	OnDestroy(wlserver.Object)
-}
-
-func (obj Display) SetImplementation(impl DisplayRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 // The error event is sent out when a fatal (non-recoverable)
@@ -343,12 +339,8 @@ type Registry struct{ wlserver.Resource }
 func (Registry) Interface() *wlproto.Interface { return registryInterface }
 
 type RegistryRequests interface {
-	Bind(obj Registry, name uint32, id wlserver.Object)
+	Bind(obj Registry, name uint32, id wlserver.Object) wlserver.ResourceImplementation
 	OnDestroy(wlserver.Object)
-}
-
-func (obj Registry) SetImplementation(impl RegistryRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 // Notify the client of global objects.
@@ -400,10 +392,6 @@ type CallbackRequests interface {
 	OnDestroy(wlserver.Object)
 }
 
-func (obj Callback) SetImplementation(impl CallbackRequests) {
-	obj.Resource.SetImplementation(impl)
-}
-
 // Notify the client when the related request is done.
 func (obj Callback) Done(callbackData uint32) {
 	obj.Conn().SendEvent(obj, 0, callbackData)
@@ -444,13 +432,9 @@ type Compositor struct{ wlserver.Resource }
 func (Compositor) Interface() *wlproto.Interface { return compositorInterface }
 
 type CompositorRequests interface {
-	CreateSurface(obj Compositor, id Surface)
-	CreateRegion(obj Compositor, id Region)
+	CreateSurface(obj Compositor, id Surface) SurfaceRequests
+	CreateRegion(obj Compositor, id Region) RegionRequests
 	OnDestroy(wlserver.Object)
-}
-
-func (obj Compositor) SetImplementation(impl CompositorRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 var shmPoolInterface = &wlproto.Interface{
@@ -504,14 +488,10 @@ type ShmPool struct{ wlserver.Resource }
 func (ShmPool) Interface() *wlproto.Interface { return shmPoolInterface }
 
 type ShmPoolRequests interface {
-	CreateBuffer(obj ShmPool, id Buffer, offset int32, width int32, height int32, stride int32, format ShmFormat)
+	CreateBuffer(obj ShmPool, id Buffer, offset int32, width int32, height int32, stride int32, format ShmFormat) BufferRequests
 	Destroy(obj ShmPool)
 	Resize(obj ShmPool, size int32)
 	OnDestroy(wlserver.Object)
-}
-
-func (obj ShmPool) SetImplementation(impl ShmPoolRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 // These errors can be emitted in response to wl_shm requests.
@@ -772,12 +752,8 @@ type Shm struct{ wlserver.Resource }
 func (Shm) Interface() *wlproto.Interface { return shmInterface }
 
 type ShmRequests interface {
-	CreatePool(obj Shm, id ShmPool, fd uintptr, size int32)
+	CreatePool(obj Shm, id ShmPool, fd uintptr, size int32) ShmPoolRequests
 	OnDestroy(wlserver.Object)
-}
-
-func (obj Shm) SetImplementation(impl ShmRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 // Informs the client about a valid pixel format that
@@ -821,10 +797,6 @@ func (Buffer) Interface() *wlproto.Interface { return bufferInterface }
 type BufferRequests interface {
 	Destroy(obj Buffer)
 	OnDestroy(wlserver.Object)
-}
-
-func (obj Buffer) SetImplementation(impl BufferRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 // Sent when this wl_buffer is no longer used by the compositor.
@@ -948,10 +920,6 @@ type DataOfferRequests interface {
 	Finish(obj DataOffer)
 	SetActions(obj DataOffer, dndActions DataDeviceManagerDndAction, preferredAction DataDeviceManagerDndAction)
 	OnDestroy(wlserver.Object)
-}
-
-func (obj DataOffer) SetImplementation(impl DataOfferRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 // Sent immediately after creating the wl_data_offer object.  One
@@ -1100,10 +1068,6 @@ type DataSourceRequests interface {
 	Destroy(obj DataSource)
 	SetActions(obj DataSource, dndActions DataDeviceManagerDndAction)
 	OnDestroy(wlserver.Object)
-}
-
-func (obj DataSource) SetImplementation(impl DataSourceRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 // Sent when a target accepts pointer_focus or motion events.  If
@@ -1303,10 +1267,6 @@ type DataDeviceRequests interface {
 	OnDestroy(wlserver.Object)
 }
 
-func (obj DataDevice) SetImplementation(impl DataDeviceRequests) {
-	obj.Resource.SetImplementation(impl)
-}
-
 // The data_offer event introduces a new wl_data_offer object,
 // which will subsequently be used in either the
 // data_device.enter event (for drag-and-drop) or the
@@ -1452,13 +1412,9 @@ type DataDeviceManager struct{ wlserver.Resource }
 func (DataDeviceManager) Interface() *wlproto.Interface { return dataDeviceManagerInterface }
 
 type DataDeviceManagerRequests interface {
-	CreateDataSource(obj DataDeviceManager, id DataSource)
-	GetDataDevice(obj DataDeviceManager, id DataDevice, seat Seat)
+	CreateDataSource(obj DataDeviceManager, id DataSource) DataSourceRequests
+	GetDataDevice(obj DataDeviceManager, id DataDevice, seat Seat) DataDeviceRequests
 	OnDestroy(wlserver.Object)
-}
-
-func (obj DataDeviceManager) SetImplementation(impl DataDeviceManagerRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 type ShellError uint32
@@ -1500,12 +1456,8 @@ type Shell struct{ wlserver.Resource }
 func (Shell) Interface() *wlproto.Interface { return shellInterface }
 
 type ShellRequests interface {
-	GetShellSurface(obj Shell, id ShellSurface, surface Surface)
+	GetShellSurface(obj Shell, id ShellSurface, surface Surface) ShellSurfaceRequests
 	OnDestroy(wlserver.Object)
-}
-
-func (obj Shell) SetImplementation(impl ShellRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 // These values are used to indicate which edge of a surface
@@ -1721,10 +1673,6 @@ type ShellSurfaceRequests interface {
 	OnDestroy(wlserver.Object)
 }
 
-func (obj ShellSurface) SetImplementation(impl ShellSurfaceRequests) {
-	obj.Resource.SetImplementation(impl)
-}
-
 // Ping a client to check if it is receiving events and sending
 // requests. A client is expected to reply with a pong request.
 func (obj ShellSurface) Ping(serial uint32) {
@@ -1936,7 +1884,7 @@ type SurfaceRequests interface {
 	Destroy(obj Surface)
 	Attach(obj Surface, buffer Buffer, x int32, y int32)
 	Damage(obj Surface, x int32, y int32, width int32, height int32)
-	Frame(obj Surface, callback Callback)
+	Frame(obj Surface, callback Callback) CallbackRequests
 	SetOpaqueRegion(obj Surface, region Region)
 	SetInputRegion(obj Surface, region Region)
 	Commit(obj Surface)
@@ -1944,10 +1892,6 @@ type SurfaceRequests interface {
 	SetBufferScale(obj Surface, scale int32)
 	DamageBuffer(obj Surface, x int32, y int32, width int32, height int32)
 	OnDestroy(wlserver.Object)
-}
-
-func (obj Surface) SetImplementation(impl SurfaceRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 // This is emitted whenever a surface's creation, movement, or resizing
@@ -2046,15 +1990,11 @@ type Seat struct{ wlserver.Resource }
 func (Seat) Interface() *wlproto.Interface { return seatInterface }
 
 type SeatRequests interface {
-	GetPointer(obj Seat, id Pointer)
-	GetKeyboard(obj Seat, id Keyboard)
-	GetTouch(obj Seat, id Touch)
+	GetPointer(obj Seat, id Pointer) PointerRequests
+	GetKeyboard(obj Seat, id Keyboard) KeyboardRequests
+	GetTouch(obj Seat, id Touch) TouchRequests
 	Release(obj Seat)
 	OnDestroy(wlserver.Object)
-}
-
-func (obj Seat) SetImplementation(impl SeatRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 // This is emitted whenever a seat gains or loses the pointer,
@@ -2268,10 +2208,6 @@ type PointerRequests interface {
 	SetCursor(obj Pointer, serial uint32, surface Surface, hotspotX int32, hotspotY int32)
 	Release(obj Pointer)
 	OnDestroy(wlserver.Object)
-}
-
-func (obj Pointer) SetImplementation(impl PointerRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 // Notification that this seat's pointer is focused on a certain
@@ -2557,10 +2493,6 @@ type KeyboardRequests interface {
 	OnDestroy(wlserver.Object)
 }
 
-func (obj Keyboard) SetImplementation(impl KeyboardRequests) {
-	obj.Resource.SetImplementation(impl)
-}
-
 // This event provides a file descriptor to the client which can be
 // memory-mapped to provide a keyboard mapping description.
 //
@@ -2704,10 +2636,6 @@ func (Touch) Interface() *wlproto.Interface { return touchInterface }
 type TouchRequests interface {
 	Release(obj Touch)
 	OnDestroy(wlserver.Object)
-}
-
-func (obj Touch) SetImplementation(impl TouchRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 // A new touch point has appeared on the surface. This touch point is
@@ -2938,10 +2866,6 @@ type OutputRequests interface {
 	OnDestroy(wlserver.Object)
 }
 
-func (obj Output) SetImplementation(impl OutputRequests) {
-	obj.Resource.SetImplementation(impl)
-}
-
 // The geometry event describes geometric properties of the output.
 // The event is sent when binding to the output object and whenever
 // any of the properties change.
@@ -3075,10 +2999,6 @@ type RegionRequests interface {
 	OnDestroy(wlserver.Object)
 }
 
-func (obj Region) SetImplementation(impl RegionRequests) {
-	obj.Resource.SetImplementation(impl)
-}
-
 type SubcompositorError uint32
 
 const (
@@ -3138,12 +3058,8 @@ func (Subcompositor) Interface() *wlproto.Interface { return subcompositorInterf
 
 type SubcompositorRequests interface {
 	Destroy(obj Subcompositor)
-	GetSubsurface(obj Subcompositor, id Subsurface, surface Surface, parent Surface)
+	GetSubsurface(obj Subcompositor, id Subsurface, surface Surface, parent Surface) SubsurfaceRequests
 	OnDestroy(wlserver.Object)
-}
-
-func (obj Subcompositor) SetImplementation(impl SubcompositorRequests) {
-	obj.Resource.SetImplementation(impl)
 }
 
 type SubsurfaceError uint32
@@ -3272,8 +3188,4 @@ type SubsurfaceRequests interface {
 	SetSync(obj Subsurface)
 	SetDesync(obj Subsurface)
 	OnDestroy(wlserver.Object)
-}
-
-func (obj Subsurface) SetImplementation(impl SubsurfaceRequests) {
-	obj.Resource.SetImplementation(impl)
 }

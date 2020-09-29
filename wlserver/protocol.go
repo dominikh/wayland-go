@@ -3,14 +3,11 @@ package wlserver
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"math"
 	"net"
 	"reflect"
-	"runtime"
-	"strings"
 	"sync"
 	"syscall"
 	"unsafe"
@@ -51,7 +48,7 @@ func NewDisplay(l *net.UnixListener) *Display {
 
 type Global interface {
 	Interface() (iface *wlproto.Interface, version int)
-	OnBind(res Object)
+	OnBind(res Object) ResourceImplementation
 }
 
 func (dsp *Display) AddGlobal(g Global) {
@@ -257,10 +254,7 @@ func (c *Client) readLoop() error {
 				robj.Field(0).Set(reflect.ValueOf(res))
 				obj := robj.Interface().(Object)
 				c.objects[id] = obj
-				c.dsp.globals[name].OnBind(obj)
-				if _, ok := c.implementations[id]; !ok {
-					panic(fmt.Sprintf("(%T).OnBind failed to set implementation for bound global", c.dsp.globals[name]))
-				}
+				c.implementations[id] = c.dsp.globals[name].OnBind(obj)
 			} else {
 				// XXX invalid opcode
 			}
@@ -314,13 +308,13 @@ func (c *Client) readLoop() error {
 		}
 
 		meth := obj.Interface().Requests[opcode].Method
-		meth.Call(allArgs)
+		results := meth.Call(allArgs)
 
-		for i, arg := range sig {
+		n := 0
+		for _, arg := range sig {
 			if arg.Type == wlproto.ArgTypeNewID {
-				if _, ok := c.implementations[args[i].Interface().(Object).ID()]; !ok {
-					panic(fmt.Sprintf("%s failed to set implementation for argument %d", printableMethodName(meth, reflect.TypeOf(impl)), i+2))
-				}
+				obj.GetResource().SetImplementation(results[n].Interface().(ResourceImplementation))
+				n++
 			}
 		}
 
@@ -331,11 +325,6 @@ func (c *Client) readLoop() error {
 			return err
 		}
 	}
-}
-
-func printableMethodName(imeth reflect.Value, recv reflect.Type) string {
-	parts := strings.Split(runtime.FuncForPC(imeth.Pointer()).Name(), ".")
-	return fmt.Sprintf("(%s).%s", recv.String(), parts[len(parts)-1])
 }
 
 type Resource struct {
