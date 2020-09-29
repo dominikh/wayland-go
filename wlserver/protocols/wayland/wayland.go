@@ -211,7 +211,7 @@ var displayInterface = &wlproto.Interface{
 			Name:   "sync",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(DisplayRequests.Sync),
+			Method: reflect.ValueOf(DisplayImplementation.Sync),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(Callback{})},
 			},
@@ -220,7 +220,7 @@ var displayInterface = &wlproto.Interface{
 			Name:   "get_registry",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(DisplayRequests.GetRegistry),
+			Method: reflect.ValueOf(DisplayImplementation.GetRegistry),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(Registry{})},
 			},
@@ -252,9 +252,9 @@ type Display struct{ wlserver.Resource }
 
 func (Display) Interface() *wlproto.Interface { return displayInterface }
 
-type DisplayRequests interface {
-	Sync(obj Display, callback Callback) CallbackRequests
-	GetRegistry(obj Display, registry Registry) RegistryRequests
+type DisplayImplementation interface {
+	Sync(obj Display, callback Callback) CallbackImplementation
+	GetRegistry(obj Display, registry Registry) RegistryImplementation
 	OnDestroy(wlserver.Object)
 }
 
@@ -287,7 +287,7 @@ var registryInterface = &wlproto.Interface{
 			Name:   "bind",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(RegistryRequests.Bind),
+			Method: reflect.ValueOf(RegistryImplementation.Bind),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint},
 				{Type: wlproto.ArgTypeNewID},
@@ -338,7 +338,7 @@ type Registry struct{ wlserver.Resource }
 
 func (Registry) Interface() *wlproto.Interface { return registryInterface }
 
-type RegistryRequests interface {
+type RegistryImplementation interface {
 	Bind(obj Registry, name uint32, id wlserver.Object) wlserver.ResourceImplementation
 	OnDestroy(wlserver.Object)
 }
@@ -388,7 +388,7 @@ type Callback struct{ wlserver.Resource }
 
 func (Callback) Interface() *wlproto.Interface { return callbackInterface }
 
-type CallbackRequests interface {
+type CallbackImplementation interface {
 	OnDestroy(wlserver.Object)
 }
 
@@ -406,7 +406,7 @@ var compositorInterface = &wlproto.Interface{
 			Name:   "create_surface",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(CompositorRequests.CreateSurface),
+			Method: reflect.ValueOf(CompositorImplementation.CreateSurface),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(Surface{})},
 			},
@@ -415,7 +415,7 @@ var compositorInterface = &wlproto.Interface{
 			Name:   "create_region",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(CompositorRequests.CreateRegion),
+			Method: reflect.ValueOf(CompositorImplementation.CreateRegion),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(Region{})},
 			},
@@ -431,9 +431,9 @@ type Compositor struct{ wlserver.Resource }
 
 func (Compositor) Interface() *wlproto.Interface { return compositorInterface }
 
-type CompositorRequests interface {
-	CreateSurface(obj Compositor, id Surface) SurfaceRequests
-	CreateRegion(obj Compositor, id Region) RegionRequests
+type CompositorImplementation interface {
+	CreateSurface(obj Compositor, id Surface) SurfaceImplementation
+	CreateRegion(obj Compositor, id Region) RegionImplementation
 	OnDestroy(wlserver.Object)
 }
 
@@ -446,7 +446,7 @@ var shmPoolInterface = &wlproto.Interface{
 			Name:   "create_buffer",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ShmPoolRequests.CreateBuffer),
+			Method: reflect.ValueOf(ShmPoolImplementation.CreateBuffer),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(Buffer{})},
 				{Type: wlproto.ArgTypeInt},
@@ -460,14 +460,14 @@ var shmPoolInterface = &wlproto.Interface{
 			Name:   "destroy",
 			Type:   "destructor",
 			Since:  1,
-			Method: reflect.ValueOf(ShmPoolRequests.Destroy),
+			Method: reflect.ValueOf(ShmPoolImplementation.Destroy),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "resize",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ShmPoolRequests.Resize),
+			Method: reflect.ValueOf(ShmPoolImplementation.Resize),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt},
 			},
@@ -487,8 +487,8 @@ type ShmPool struct{ wlserver.Resource }
 
 func (ShmPool) Interface() *wlproto.Interface { return shmPoolInterface }
 
-type ShmPoolRequests interface {
-	CreateBuffer(obj ShmPool, id Buffer, offset int32, width int32, height int32, stride int32, format ShmFormat) BufferRequests
+type ShmPoolImplementation interface {
+	CreateBuffer(obj ShmPool, id Buffer, offset int32, width int32, height int32, stride int32, format ShmFormat) BufferImplementation
 	Destroy(obj ShmPool)
 	Resize(obj ShmPool, size int32)
 	OnDestroy(wlserver.Object)
@@ -719,7 +719,7 @@ var shmInterface = &wlproto.Interface{
 			Name:   "create_pool",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ShmRequests.CreatePool),
+			Method: reflect.ValueOf(ShmImplementation.CreatePool),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(ShmPool{})},
 				{Type: wlproto.ArgTypeFd},
@@ -751,8 +751,8 @@ type Shm struct{ wlserver.Resource }
 
 func (Shm) Interface() *wlproto.Interface { return shmInterface }
 
-type ShmRequests interface {
-	CreatePool(obj Shm, id ShmPool, fd uintptr, size int32) ShmPoolRequests
+type ShmImplementation interface {
+	CreatePool(obj Shm, id ShmPool, fd uintptr, size int32) ShmPoolImplementation
 	OnDestroy(wlserver.Object)
 }
 
@@ -772,7 +772,7 @@ var bufferInterface = &wlproto.Interface{
 			Name:   "destroy",
 			Type:   "destructor",
 			Since:  1,
-			Method: reflect.ValueOf(BufferRequests.Destroy),
+			Method: reflect.ValueOf(BufferImplementation.Destroy),
 			Args:   []wlproto.Arg{},
 		},
 	},
@@ -794,7 +794,7 @@ type Buffer struct{ wlserver.Resource }
 
 func (Buffer) Interface() *wlproto.Interface { return bufferInterface }
 
-type BufferRequests interface {
+type BufferImplementation interface {
 	Destroy(obj Buffer)
 	OnDestroy(wlserver.Object)
 }
@@ -837,7 +837,7 @@ var dataOfferInterface = &wlproto.Interface{
 			Name:   "accept",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(DataOfferRequests.Accept),
+			Method: reflect.ValueOf(DataOfferImplementation.Accept),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint},
 				{Type: wlproto.ArgTypeString},
@@ -847,7 +847,7 @@ var dataOfferInterface = &wlproto.Interface{
 			Name:   "receive",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(DataOfferRequests.Receive),
+			Method: reflect.ValueOf(DataOfferImplementation.Receive),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeString},
 				{Type: wlproto.ArgTypeFd},
@@ -857,21 +857,21 @@ var dataOfferInterface = &wlproto.Interface{
 			Name:   "destroy",
 			Type:   "destructor",
 			Since:  1,
-			Method: reflect.ValueOf(DataOfferRequests.Destroy),
+			Method: reflect.ValueOf(DataOfferImplementation.Destroy),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "finish",
 			Type:   "",
 			Since:  3,
-			Method: reflect.ValueOf(DataOfferRequests.Finish),
+			Method: reflect.ValueOf(DataOfferImplementation.Finish),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "set_actions",
 			Type:   "",
 			Since:  3,
-			Method: reflect.ValueOf(DataOfferRequests.SetActions),
+			Method: reflect.ValueOf(DataOfferImplementation.SetActions),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(DataDeviceManagerDndAction(0))},
 				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(DataDeviceManagerDndAction(0))},
@@ -913,7 +913,7 @@ type DataOffer struct{ wlserver.Resource }
 
 func (DataOffer) Interface() *wlproto.Interface { return dataOfferInterface }
 
-type DataOfferRequests interface {
+type DataOfferImplementation interface {
 	Accept(obj DataOffer, serial uint32, mimeType string)
 	Receive(obj DataOffer, mimeType string, fd uintptr)
 	Destroy(obj DataOffer)
@@ -992,7 +992,7 @@ var dataSourceInterface = &wlproto.Interface{
 			Name:   "offer",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(DataSourceRequests.Offer),
+			Method: reflect.ValueOf(DataSourceImplementation.Offer),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeString},
 			},
@@ -1001,14 +1001,14 @@ var dataSourceInterface = &wlproto.Interface{
 			Name:   "destroy",
 			Type:   "destructor",
 			Since:  1,
-			Method: reflect.ValueOf(DataSourceRequests.Destroy),
+			Method: reflect.ValueOf(DataSourceImplementation.Destroy),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "set_actions",
 			Type:   "",
 			Since:  3,
-			Method: reflect.ValueOf(DataSourceRequests.SetActions),
+			Method: reflect.ValueOf(DataSourceImplementation.SetActions),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(DataDeviceManagerDndAction(0))},
 			},
@@ -1063,7 +1063,7 @@ type DataSource struct{ wlserver.Resource }
 
 func (DataSource) Interface() *wlproto.Interface { return dataSourceInterface }
 
-type DataSourceRequests interface {
+type DataSourceImplementation interface {
 	Offer(obj DataSource, mimeType string)
 	Destroy(obj DataSource)
 	SetActions(obj DataSource, dndActions DataDeviceManagerDndAction)
@@ -1177,7 +1177,7 @@ var dataDeviceInterface = &wlproto.Interface{
 			Name:   "start_drag",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(DataDeviceRequests.StartDrag),
+			Method: reflect.ValueOf(DataDeviceImplementation.StartDrag),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(DataSource{})},
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Surface{})},
@@ -1189,7 +1189,7 @@ var dataDeviceInterface = &wlproto.Interface{
 			Name:   "set_selection",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(DataDeviceRequests.SetSelection),
+			Method: reflect.ValueOf(DataDeviceImplementation.SetSelection),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(DataSource{})},
 				{Type: wlproto.ArgTypeUint},
@@ -1199,7 +1199,7 @@ var dataDeviceInterface = &wlproto.Interface{
 			Name:   "release",
 			Type:   "destructor",
 			Since:  2,
-			Method: reflect.ValueOf(DataDeviceRequests.Release),
+			Method: reflect.ValueOf(DataDeviceImplementation.Release),
 			Args:   []wlproto.Arg{},
 		},
 	},
@@ -1260,7 +1260,7 @@ type DataDevice struct{ wlserver.Resource }
 
 func (DataDevice) Interface() *wlproto.Interface { return dataDeviceInterface }
 
-type DataDeviceRequests interface {
+type DataDeviceImplementation interface {
 	StartDrag(obj DataDevice, source DataSource, origin Surface, icon Surface, serial uint32)
 	SetSelection(obj DataDevice, source DataSource, serial uint32)
 	Release(obj DataDevice)
@@ -1378,7 +1378,7 @@ var dataDeviceManagerInterface = &wlproto.Interface{
 			Name:   "create_data_source",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(DataDeviceManagerRequests.CreateDataSource),
+			Method: reflect.ValueOf(DataDeviceManagerImplementation.CreateDataSource),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(DataSource{})},
 			},
@@ -1387,7 +1387,7 @@ var dataDeviceManagerInterface = &wlproto.Interface{
 			Name:   "get_data_device",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(DataDeviceManagerRequests.GetDataDevice),
+			Method: reflect.ValueOf(DataDeviceManagerImplementation.GetDataDevice),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(DataDevice{})},
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Seat{})},
@@ -1411,9 +1411,9 @@ type DataDeviceManager struct{ wlserver.Resource }
 
 func (DataDeviceManager) Interface() *wlproto.Interface { return dataDeviceManagerInterface }
 
-type DataDeviceManagerRequests interface {
-	CreateDataSource(obj DataDeviceManager, id DataSource) DataSourceRequests
-	GetDataDevice(obj DataDeviceManager, id DataDevice, seat Seat) DataDeviceRequests
+type DataDeviceManagerImplementation interface {
+	CreateDataSource(obj DataDeviceManager, id DataSource) DataSourceImplementation
+	GetDataDevice(obj DataDeviceManager, id DataDevice, seat Seat) DataDeviceImplementation
 	OnDestroy(wlserver.Object)
 }
 
@@ -1433,7 +1433,7 @@ var shellInterface = &wlproto.Interface{
 			Name:   "get_shell_surface",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ShellRequests.GetShellSurface),
+			Method: reflect.ValueOf(ShellImplementation.GetShellSurface),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(ShellSurface{})},
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Surface{})},
@@ -1455,8 +1455,8 @@ type Shell struct{ wlserver.Resource }
 
 func (Shell) Interface() *wlproto.Interface { return shellInterface }
 
-type ShellRequests interface {
-	GetShellSurface(obj Shell, id ShellSurface, surface Surface) ShellSurfaceRequests
+type ShellImplementation interface {
+	GetShellSurface(obj Shell, id ShellSurface, surface Surface) ShellSurfaceImplementation
 	OnDestroy(wlserver.Object)
 }
 
@@ -1521,7 +1521,7 @@ var shellSurfaceInterface = &wlproto.Interface{
 			Name:   "pong",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ShellSurfaceRequests.Pong),
+			Method: reflect.ValueOf(ShellSurfaceImplementation.Pong),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint},
 			},
@@ -1530,7 +1530,7 @@ var shellSurfaceInterface = &wlproto.Interface{
 			Name:   "move",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ShellSurfaceRequests.Move),
+			Method: reflect.ValueOf(ShellSurfaceImplementation.Move),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Seat{})},
 				{Type: wlproto.ArgTypeUint},
@@ -1540,7 +1540,7 @@ var shellSurfaceInterface = &wlproto.Interface{
 			Name:   "resize",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ShellSurfaceRequests.Resize),
+			Method: reflect.ValueOf(ShellSurfaceImplementation.Resize),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Seat{})},
 				{Type: wlproto.ArgTypeUint},
@@ -1551,14 +1551,14 @@ var shellSurfaceInterface = &wlproto.Interface{
 			Name:   "set_toplevel",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ShellSurfaceRequests.SetToplevel),
+			Method: reflect.ValueOf(ShellSurfaceImplementation.SetToplevel),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "set_transient",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ShellSurfaceRequests.SetTransient),
+			Method: reflect.ValueOf(ShellSurfaceImplementation.SetTransient),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Surface{})},
 				{Type: wlproto.ArgTypeInt},
@@ -1570,7 +1570,7 @@ var shellSurfaceInterface = &wlproto.Interface{
 			Name:   "set_fullscreen",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ShellSurfaceRequests.SetFullscreen),
+			Method: reflect.ValueOf(ShellSurfaceImplementation.SetFullscreen),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(ShellSurfaceFullscreenMethod(0))},
 				{Type: wlproto.ArgTypeUint},
@@ -1581,7 +1581,7 @@ var shellSurfaceInterface = &wlproto.Interface{
 			Name:   "set_popup",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ShellSurfaceRequests.SetPopup),
+			Method: reflect.ValueOf(ShellSurfaceImplementation.SetPopup),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Seat{})},
 				{Type: wlproto.ArgTypeUint},
@@ -1595,7 +1595,7 @@ var shellSurfaceInterface = &wlproto.Interface{
 			Name:   "set_maximized",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ShellSurfaceRequests.SetMaximized),
+			Method: reflect.ValueOf(ShellSurfaceImplementation.SetMaximized),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Output{})},
 			},
@@ -1604,7 +1604,7 @@ var shellSurfaceInterface = &wlproto.Interface{
 			Name:   "set_title",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ShellSurfaceRequests.SetTitle),
+			Method: reflect.ValueOf(ShellSurfaceImplementation.SetTitle),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeString},
 			},
@@ -1613,7 +1613,7 @@ var shellSurfaceInterface = &wlproto.Interface{
 			Name:   "set_class",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ShellSurfaceRequests.SetClass),
+			Method: reflect.ValueOf(ShellSurfaceImplementation.SetClass),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeString},
 			},
@@ -1659,7 +1659,7 @@ type ShellSurface struct{ wlserver.Resource }
 
 func (ShellSurface) Interface() *wlproto.Interface { return shellSurfaceInterface }
 
-type ShellSurfaceRequests interface {
+type ShellSurfaceImplementation interface {
 	Pong(obj ShellSurface, serial uint32)
 	Move(obj ShellSurface, seat Seat, serial uint32)
 	Resize(obj ShellSurface, seat Seat, serial uint32, edges ShellSurfaceResize)
@@ -1726,14 +1726,14 @@ var surfaceInterface = &wlproto.Interface{
 			Name:   "destroy",
 			Type:   "destructor",
 			Since:  1,
-			Method: reflect.ValueOf(SurfaceRequests.Destroy),
+			Method: reflect.ValueOf(SurfaceImplementation.Destroy),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "attach",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SurfaceRequests.Attach),
+			Method: reflect.ValueOf(SurfaceImplementation.Attach),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Buffer{})},
 				{Type: wlproto.ArgTypeInt},
@@ -1744,7 +1744,7 @@ var surfaceInterface = &wlproto.Interface{
 			Name:   "damage",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SurfaceRequests.Damage),
+			Method: reflect.ValueOf(SurfaceImplementation.Damage),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
@@ -1756,7 +1756,7 @@ var surfaceInterface = &wlproto.Interface{
 			Name:   "frame",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SurfaceRequests.Frame),
+			Method: reflect.ValueOf(SurfaceImplementation.Frame),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(Callback{})},
 			},
@@ -1765,7 +1765,7 @@ var surfaceInterface = &wlproto.Interface{
 			Name:   "set_opaque_region",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SurfaceRequests.SetOpaqueRegion),
+			Method: reflect.ValueOf(SurfaceImplementation.SetOpaqueRegion),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Region{})},
 			},
@@ -1774,7 +1774,7 @@ var surfaceInterface = &wlproto.Interface{
 			Name:   "set_input_region",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SurfaceRequests.SetInputRegion),
+			Method: reflect.ValueOf(SurfaceImplementation.SetInputRegion),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Region{})},
 			},
@@ -1783,14 +1783,14 @@ var surfaceInterface = &wlproto.Interface{
 			Name:   "commit",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SurfaceRequests.Commit),
+			Method: reflect.ValueOf(SurfaceImplementation.Commit),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "set_buffer_transform",
 			Type:   "",
 			Since:  2,
-			Method: reflect.ValueOf(SurfaceRequests.SetBufferTransform),
+			Method: reflect.ValueOf(SurfaceImplementation.SetBufferTransform),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(int32(0))},
 			},
@@ -1799,7 +1799,7 @@ var surfaceInterface = &wlproto.Interface{
 			Name:   "set_buffer_scale",
 			Type:   "",
 			Since:  3,
-			Method: reflect.ValueOf(SurfaceRequests.SetBufferScale),
+			Method: reflect.ValueOf(SurfaceImplementation.SetBufferScale),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt},
 			},
@@ -1808,7 +1808,7 @@ var surfaceInterface = &wlproto.Interface{
 			Name:   "damage_buffer",
 			Type:   "",
 			Since:  4,
-			Method: reflect.ValueOf(SurfaceRequests.DamageBuffer),
+			Method: reflect.ValueOf(SurfaceImplementation.DamageBuffer),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
@@ -1880,11 +1880,11 @@ type Surface struct{ wlserver.Resource }
 
 func (Surface) Interface() *wlproto.Interface { return surfaceInterface }
 
-type SurfaceRequests interface {
+type SurfaceImplementation interface {
 	Destroy(obj Surface)
 	Attach(obj Surface, buffer Buffer, x int32, y int32)
 	Damage(obj Surface, x int32, y int32, width int32, height int32)
-	Frame(obj Surface, callback Callback) CallbackRequests
+	Frame(obj Surface, callback Callback) CallbackImplementation
 	SetOpaqueRegion(obj Surface, region Region)
 	SetInputRegion(obj Surface, region Region)
 	Commit(obj Surface)
@@ -1932,7 +1932,7 @@ var seatInterface = &wlproto.Interface{
 			Name:   "get_pointer",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SeatRequests.GetPointer),
+			Method: reflect.ValueOf(SeatImplementation.GetPointer),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(Pointer{})},
 			},
@@ -1941,7 +1941,7 @@ var seatInterface = &wlproto.Interface{
 			Name:   "get_keyboard",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SeatRequests.GetKeyboard),
+			Method: reflect.ValueOf(SeatImplementation.GetKeyboard),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(Keyboard{})},
 			},
@@ -1950,7 +1950,7 @@ var seatInterface = &wlproto.Interface{
 			Name:   "get_touch",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SeatRequests.GetTouch),
+			Method: reflect.ValueOf(SeatImplementation.GetTouch),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(Touch{})},
 			},
@@ -1959,7 +1959,7 @@ var seatInterface = &wlproto.Interface{
 			Name:   "release",
 			Type:   "destructor",
 			Since:  5,
-			Method: reflect.ValueOf(SeatRequests.Release),
+			Method: reflect.ValueOf(SeatImplementation.Release),
 			Args:   []wlproto.Arg{},
 		},
 	},
@@ -1989,10 +1989,10 @@ type Seat struct{ wlserver.Resource }
 
 func (Seat) Interface() *wlproto.Interface { return seatInterface }
 
-type SeatRequests interface {
-	GetPointer(obj Seat, id Pointer) PointerRequests
-	GetKeyboard(obj Seat, id Keyboard) KeyboardRequests
-	GetTouch(obj Seat, id Touch) TouchRequests
+type SeatImplementation interface {
+	GetPointer(obj Seat, id Pointer) PointerImplementation
+	GetKeyboard(obj Seat, id Keyboard) KeyboardImplementation
+	GetTouch(obj Seat, id Touch) TouchImplementation
 	Release(obj Seat)
 	OnDestroy(wlserver.Object)
 }
@@ -2098,7 +2098,7 @@ var pointerInterface = &wlproto.Interface{
 			Name:   "set_cursor",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(PointerRequests.SetCursor),
+			Method: reflect.ValueOf(PointerImplementation.SetCursor),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint},
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Surface{})},
@@ -2110,7 +2110,7 @@ var pointerInterface = &wlproto.Interface{
 			Name:   "release",
 			Type:   "destructor",
 			Since:  3,
-			Method: reflect.ValueOf(PointerRequests.Release),
+			Method: reflect.ValueOf(PointerImplementation.Release),
 			Args:   []wlproto.Arg{},
 		},
 	},
@@ -2204,7 +2204,7 @@ type Pointer struct{ wlserver.Resource }
 
 func (Pointer) Interface() *wlproto.Interface { return pointerInterface }
 
-type PointerRequests interface {
+type PointerImplementation interface {
 	SetCursor(obj Pointer, serial uint32, surface Surface, hotspotX int32, hotspotY int32)
 	Release(obj Pointer)
 	OnDestroy(wlserver.Object)
@@ -2419,7 +2419,7 @@ var keyboardInterface = &wlproto.Interface{
 			Name:   "release",
 			Type:   "destructor",
 			Since:  3,
-			Method: reflect.ValueOf(KeyboardRequests.Release),
+			Method: reflect.ValueOf(KeyboardImplementation.Release),
 			Args:   []wlproto.Arg{},
 		},
 	},
@@ -2488,7 +2488,7 @@ type Keyboard struct{ wlserver.Resource }
 
 func (Keyboard) Interface() *wlproto.Interface { return keyboardInterface }
 
-type KeyboardRequests interface {
+type KeyboardImplementation interface {
 	Release(obj Keyboard)
 	OnDestroy(wlserver.Object)
 }
@@ -2555,7 +2555,7 @@ var touchInterface = &wlproto.Interface{
 			Name:   "release",
 			Type:   "destructor",
 			Since:  3,
-			Method: reflect.ValueOf(TouchRequests.Release),
+			Method: reflect.ValueOf(TouchImplementation.Release),
 			Args:   []wlproto.Arg{},
 		},
 	},
@@ -2633,7 +2633,7 @@ type Touch struct{ wlserver.Resource }
 
 func (Touch) Interface() *wlproto.Interface { return touchInterface }
 
-type TouchRequests interface {
+type TouchImplementation interface {
 	Release(obj Touch)
 	OnDestroy(wlserver.Object)
 }
@@ -2807,7 +2807,7 @@ var outputInterface = &wlproto.Interface{
 			Name:   "release",
 			Type:   "destructor",
 			Since:  3,
-			Method: reflect.ValueOf(OutputRequests.Release),
+			Method: reflect.ValueOf(OutputImplementation.Release),
 			Args:   []wlproto.Arg{},
 		},
 	},
@@ -2861,7 +2861,7 @@ type Output struct{ wlserver.Resource }
 
 func (Output) Interface() *wlproto.Interface { return outputInterface }
 
-type OutputRequests interface {
+type OutputImplementation interface {
 	Release(obj Output)
 	OnDestroy(wlserver.Object)
 }
@@ -2953,14 +2953,14 @@ var regionInterface = &wlproto.Interface{
 			Name:   "destroy",
 			Type:   "destructor",
 			Since:  1,
-			Method: reflect.ValueOf(RegionRequests.Destroy),
+			Method: reflect.ValueOf(RegionImplementation.Destroy),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "add",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(RegionRequests.Add),
+			Method: reflect.ValueOf(RegionImplementation.Add),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
@@ -2972,7 +2972,7 @@ var regionInterface = &wlproto.Interface{
 			Name:   "subtract",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(RegionRequests.Subtract),
+			Method: reflect.ValueOf(RegionImplementation.Subtract),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
@@ -2992,7 +2992,7 @@ type Region struct{ wlserver.Resource }
 
 func (Region) Interface() *wlproto.Interface { return regionInterface }
 
-type RegionRequests interface {
+type RegionImplementation interface {
 	Destroy(obj Region)
 	Add(obj Region, x int32, y int32, width int32, height int32)
 	Subtract(obj Region, x int32, y int32, width int32, height int32)
@@ -3015,14 +3015,14 @@ var subcompositorInterface = &wlproto.Interface{
 			Name:   "destroy",
 			Type:   "destructor",
 			Since:  1,
-			Method: reflect.ValueOf(SubcompositorRequests.Destroy),
+			Method: reflect.ValueOf(SubcompositorImplementation.Destroy),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "get_subsurface",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SubcompositorRequests.GetSubsurface),
+			Method: reflect.ValueOf(SubcompositorImplementation.GetSubsurface),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(Subsurface{})},
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Surface{})},
@@ -3056,9 +3056,9 @@ type Subcompositor struct{ wlserver.Resource }
 
 func (Subcompositor) Interface() *wlproto.Interface { return subcompositorInterface }
 
-type SubcompositorRequests interface {
+type SubcompositorImplementation interface {
 	Destroy(obj Subcompositor)
-	GetSubsurface(obj Subcompositor, id Subsurface, surface Surface, parent Surface) SubsurfaceRequests
+	GetSubsurface(obj Subcompositor, id Subsurface, surface Surface, parent Surface) SubsurfaceImplementation
 	OnDestroy(wlserver.Object)
 }
 
@@ -3078,14 +3078,14 @@ var subsurfaceInterface = &wlproto.Interface{
 			Name:   "destroy",
 			Type:   "destructor",
 			Since:  1,
-			Method: reflect.ValueOf(SubsurfaceRequests.Destroy),
+			Method: reflect.ValueOf(SubsurfaceImplementation.Destroy),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "set_position",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SubsurfaceRequests.SetPosition),
+			Method: reflect.ValueOf(SubsurfaceImplementation.SetPosition),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
@@ -3095,7 +3095,7 @@ var subsurfaceInterface = &wlproto.Interface{
 			Name:   "place_above",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SubsurfaceRequests.PlaceAbove),
+			Method: reflect.ValueOf(SubsurfaceImplementation.PlaceAbove),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Surface{})},
 			},
@@ -3104,7 +3104,7 @@ var subsurfaceInterface = &wlproto.Interface{
 			Name:   "place_below",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SubsurfaceRequests.PlaceBelow),
+			Method: reflect.ValueOf(SubsurfaceImplementation.PlaceBelow),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Surface{})},
 			},
@@ -3113,14 +3113,14 @@ var subsurfaceInterface = &wlproto.Interface{
 			Name:   "set_sync",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SubsurfaceRequests.SetSync),
+			Method: reflect.ValueOf(SubsurfaceImplementation.SetSync),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "set_desync",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SubsurfaceRequests.SetDesync),
+			Method: reflect.ValueOf(SubsurfaceImplementation.SetDesync),
 			Args:   []wlproto.Arg{},
 		},
 	},
@@ -3180,7 +3180,7 @@ type Subsurface struct{ wlserver.Resource }
 
 func (Subsurface) Interface() *wlproto.Interface { return subsurfaceInterface }
 
-type SubsurfaceRequests interface {
+type SubsurfaceImplementation interface {
 	Destroy(obj Subsurface)
 	SetPosition(obj Subsurface, x int32, y int32)
 	PlaceAbove(obj Subsurface, sibling Surface)

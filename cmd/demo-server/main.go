@@ -49,14 +49,14 @@ func (s *Seat) OnBind(res wlserver.Object) wlserver.ResourceImplementation {
 	return s
 }
 
-func (s *Seat) GetPointer(obj wayland.Seat, id wayland.Pointer) wayland.PointerRequests {
+func (s *Seat) GetPointer(obj wayland.Seat, id wayland.Pointer) wayland.PointerImplementation {
 	panic("not implemented")
 }
-func (s *Seat) GetTouch(obj wayland.Seat, id wayland.Touch) wayland.TouchRequests {
+func (s *Seat) GetTouch(obj wayland.Seat, id wayland.Touch) wayland.TouchImplementation {
 	panic("not implemented")
 }
 
-func (s *Seat) GetKeyboard(obj wayland.Seat, id wayland.Keyboard) wayland.KeyboardRequests {
+func (s *Seat) GetKeyboard(obj wayland.Seat, id wayland.Keyboard) wayland.KeyboardImplementation {
 	s.keyboard.Init(id)
 	return s.keyboard
 }

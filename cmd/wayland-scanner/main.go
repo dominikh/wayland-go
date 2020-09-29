@@ -102,7 +102,7 @@ func (b *Builder) typeName(name string) string {
 
 func (b *Builder) eventsTypeName(iface elInterface) string {
 	if b.ServerMode {
-		return fmt.Sprintf("%sRequests", b.typeName(iface.Name))
+		return fmt.Sprintf("%sImplementation", b.typeName(iface.Name))
 	} else {
 		return fmt.Sprintf("%sEvents", b.typeName(iface.Name))
 	}
@@ -431,7 +431,7 @@ func (b *Builder) printSpecs(out io.Writer) {
 							if arg.Interface == "" {
 								rets = append(rets, "wlserver.ResourceImplementation")
 							} else {
-								rets = append(rets, b.goTypeFromWlType(arg, iface)+"Requests")
+								rets = append(rets, b.goTypeFromWlType(arg, iface)+"Implementation")
 							}
 						}
 					}

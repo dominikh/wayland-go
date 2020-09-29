@@ -104,14 +104,14 @@ var wmBaseInterface = &wlproto.Interface{
 			Name:   "destroy",
 			Type:   "destructor",
 			Since:  1,
-			Method: reflect.ValueOf(WmBaseRequests.Destroy),
+			Method: reflect.ValueOf(WmBaseImplementation.Destroy),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "create_positioner",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(WmBaseRequests.CreatePositioner),
+			Method: reflect.ValueOf(WmBaseImplementation.CreatePositioner),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(Positioner{})},
 			},
@@ -120,7 +120,7 @@ var wmBaseInterface = &wlproto.Interface{
 			Name:   "get_xdg_surface",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(WmBaseRequests.GetXdgSurface),
+			Method: reflect.ValueOf(WmBaseImplementation.GetXdgSurface),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(Surface{})},
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(wayland.Surface{})},
@@ -130,7 +130,7 @@ var wmBaseInterface = &wlproto.Interface{
 			Name:   "pong",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(WmBaseRequests.Pong),
+			Method: reflect.ValueOf(WmBaseImplementation.Pong),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint},
 			},
@@ -156,10 +156,10 @@ type WmBase struct{ wlserver.Resource }
 
 func (WmBase) Interface() *wlproto.Interface { return wmBaseInterface }
 
-type WmBaseRequests interface {
+type WmBaseImplementation interface {
 	Destroy(obj WmBase)
-	CreatePositioner(obj WmBase, id Positioner) PositionerRequests
-	GetXdgSurface(obj WmBase, id Surface, surface wayland.Surface) SurfaceRequests
+	CreatePositioner(obj WmBase, id Positioner) PositionerImplementation
+	GetXdgSurface(obj WmBase, id Surface, surface wayland.Surface) SurfaceImplementation
 	Pong(obj WmBase, serial uint32)
 	OnDestroy(wlserver.Object)
 }
@@ -293,14 +293,14 @@ var positionerInterface = &wlproto.Interface{
 			Name:   "destroy",
 			Type:   "destructor",
 			Since:  1,
-			Method: reflect.ValueOf(PositionerRequests.Destroy),
+			Method: reflect.ValueOf(PositionerImplementation.Destroy),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "set_size",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(PositionerRequests.SetSize),
+			Method: reflect.ValueOf(PositionerImplementation.SetSize),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
@@ -310,7 +310,7 @@ var positionerInterface = &wlproto.Interface{
 			Name:   "set_anchor_rect",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(PositionerRequests.SetAnchorRect),
+			Method: reflect.ValueOf(PositionerImplementation.SetAnchorRect),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
@@ -322,7 +322,7 @@ var positionerInterface = &wlproto.Interface{
 			Name:   "set_anchor",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(PositionerRequests.SetAnchor),
+			Method: reflect.ValueOf(PositionerImplementation.SetAnchor),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(PositionerAnchor(0))},
 			},
@@ -331,7 +331,7 @@ var positionerInterface = &wlproto.Interface{
 			Name:   "set_gravity",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(PositionerRequests.SetGravity),
+			Method: reflect.ValueOf(PositionerImplementation.SetGravity),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint, Aux: reflect.TypeOf(PositionerGravity(0))},
 			},
@@ -340,7 +340,7 @@ var positionerInterface = &wlproto.Interface{
 			Name:   "set_constraint_adjustment",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(PositionerRequests.SetConstraintAdjustment),
+			Method: reflect.ValueOf(PositionerImplementation.SetConstraintAdjustment),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint},
 			},
@@ -349,7 +349,7 @@ var positionerInterface = &wlproto.Interface{
 			Name:   "set_offset",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(PositionerRequests.SetOffset),
+			Method: reflect.ValueOf(PositionerImplementation.SetOffset),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
@@ -359,14 +359,14 @@ var positionerInterface = &wlproto.Interface{
 			Name:   "set_reactive",
 			Type:   "",
 			Since:  3,
-			Method: reflect.ValueOf(PositionerRequests.SetReactive),
+			Method: reflect.ValueOf(PositionerImplementation.SetReactive),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "set_parent_size",
 			Type:   "",
 			Since:  3,
-			Method: reflect.ValueOf(PositionerRequests.SetParentSize),
+			Method: reflect.ValueOf(PositionerImplementation.SetParentSize),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
@@ -376,7 +376,7 @@ var positionerInterface = &wlproto.Interface{
 			Name:   "set_parent_configure",
 			Type:   "",
 			Since:  3,
-			Method: reflect.ValueOf(PositionerRequests.SetParentConfigure),
+			Method: reflect.ValueOf(PositionerImplementation.SetParentConfigure),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint},
 			},
@@ -408,7 +408,7 @@ type Positioner struct{ wlserver.Resource }
 
 func (Positioner) Interface() *wlproto.Interface { return positionerInterface }
 
-type PositionerRequests interface {
+type PositionerImplementation interface {
 	Destroy(obj Positioner)
 	SetSize(obj Positioner, width int32, height int32)
 	SetAnchorRect(obj Positioner, x int32, y int32, width int32, height int32)
@@ -439,14 +439,14 @@ var surfaceInterface = &wlproto.Interface{
 			Name:   "destroy",
 			Type:   "destructor",
 			Since:  1,
-			Method: reflect.ValueOf(SurfaceRequests.Destroy),
+			Method: reflect.ValueOf(SurfaceImplementation.Destroy),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "get_toplevel",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SurfaceRequests.GetToplevel),
+			Method: reflect.ValueOf(SurfaceImplementation.GetToplevel),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(Toplevel{})},
 			},
@@ -455,7 +455,7 @@ var surfaceInterface = &wlproto.Interface{
 			Name:   "get_popup",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SurfaceRequests.GetPopup),
+			Method: reflect.ValueOf(SurfaceImplementation.GetPopup),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeNewID, Aux: reflect.TypeOf(Popup{})},
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Surface{})},
@@ -466,7 +466,7 @@ var surfaceInterface = &wlproto.Interface{
 			Name:   "set_window_geometry",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SurfaceRequests.SetWindowGeometry),
+			Method: reflect.ValueOf(SurfaceImplementation.SetWindowGeometry),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
@@ -478,7 +478,7 @@ var surfaceInterface = &wlproto.Interface{
 			Name:   "ack_configure",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(SurfaceRequests.AckConfigure),
+			Method: reflect.ValueOf(SurfaceImplementation.AckConfigure),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint},
 			},
@@ -538,10 +538,10 @@ type Surface struct{ wlserver.Resource }
 
 func (Surface) Interface() *wlproto.Interface { return surfaceInterface }
 
-type SurfaceRequests interface {
+type SurfaceImplementation interface {
 	Destroy(obj Surface)
-	GetToplevel(obj Surface, id Toplevel) ToplevelRequests
-	GetPopup(obj Surface, id Popup, parent Surface, positioner Positioner) PopupRequests
+	GetToplevel(obj Surface, id Toplevel) ToplevelImplementation
+	GetPopup(obj Surface, id Popup, parent Surface, positioner Positioner) PopupImplementation
 	SetWindowGeometry(obj Surface, x int32, y int32, width int32, height int32)
 	AckConfigure(obj Surface, serial uint32)
 	OnDestroy(wlserver.Object)
@@ -637,14 +637,14 @@ var toplevelInterface = &wlproto.Interface{
 			Name:   "destroy",
 			Type:   "destructor",
 			Since:  1,
-			Method: reflect.ValueOf(ToplevelRequests.Destroy),
+			Method: reflect.ValueOf(ToplevelImplementation.Destroy),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "set_parent",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ToplevelRequests.SetParent),
+			Method: reflect.ValueOf(ToplevelImplementation.SetParent),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Toplevel{})},
 			},
@@ -653,7 +653,7 @@ var toplevelInterface = &wlproto.Interface{
 			Name:   "set_title",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ToplevelRequests.SetTitle),
+			Method: reflect.ValueOf(ToplevelImplementation.SetTitle),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeString},
 			},
@@ -662,7 +662,7 @@ var toplevelInterface = &wlproto.Interface{
 			Name:   "set_app_id",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ToplevelRequests.SetAppID),
+			Method: reflect.ValueOf(ToplevelImplementation.SetAppID),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeString},
 			},
@@ -671,7 +671,7 @@ var toplevelInterface = &wlproto.Interface{
 			Name:   "show_window_menu",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ToplevelRequests.ShowWindowMenu),
+			Method: reflect.ValueOf(ToplevelImplementation.ShowWindowMenu),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(wayland.Seat{})},
 				{Type: wlproto.ArgTypeUint},
@@ -683,7 +683,7 @@ var toplevelInterface = &wlproto.Interface{
 			Name:   "move",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ToplevelRequests.Move),
+			Method: reflect.ValueOf(ToplevelImplementation.Move),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(wayland.Seat{})},
 				{Type: wlproto.ArgTypeUint},
@@ -693,7 +693,7 @@ var toplevelInterface = &wlproto.Interface{
 			Name:   "resize",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ToplevelRequests.Resize),
+			Method: reflect.ValueOf(ToplevelImplementation.Resize),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(wayland.Seat{})},
 				{Type: wlproto.ArgTypeUint},
@@ -704,7 +704,7 @@ var toplevelInterface = &wlproto.Interface{
 			Name:   "set_max_size",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ToplevelRequests.SetMaxSize),
+			Method: reflect.ValueOf(ToplevelImplementation.SetMaxSize),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
@@ -714,7 +714,7 @@ var toplevelInterface = &wlproto.Interface{
 			Name:   "set_min_size",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ToplevelRequests.SetMinSize),
+			Method: reflect.ValueOf(ToplevelImplementation.SetMinSize),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
@@ -724,21 +724,21 @@ var toplevelInterface = &wlproto.Interface{
 			Name:   "set_maximized",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ToplevelRequests.SetMaximized),
+			Method: reflect.ValueOf(ToplevelImplementation.SetMaximized),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "unset_maximized",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ToplevelRequests.UnsetMaximized),
+			Method: reflect.ValueOf(ToplevelImplementation.UnsetMaximized),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "set_fullscreen",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ToplevelRequests.SetFullscreen),
+			Method: reflect.ValueOf(ToplevelImplementation.SetFullscreen),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(wayland.Output{})},
 			},
@@ -747,14 +747,14 @@ var toplevelInterface = &wlproto.Interface{
 			Name:   "unset_fullscreen",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ToplevelRequests.UnsetFullscreen),
+			Method: reflect.ValueOf(ToplevelImplementation.UnsetFullscreen),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "set_minimized",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(ToplevelRequests.SetMinimized),
+			Method: reflect.ValueOf(ToplevelImplementation.SetMinimized),
 			Args:   []wlproto.Arg{},
 		},
 	},
@@ -793,7 +793,7 @@ type Toplevel struct{ wlserver.Resource }
 
 func (Toplevel) Interface() *wlproto.Interface { return toplevelInterface }
 
-type ToplevelRequests interface {
+type ToplevelImplementation interface {
 	Destroy(obj Toplevel)
 	SetParent(obj Toplevel, parent Toplevel)
 	SetTitle(obj Toplevel, title string)
@@ -862,14 +862,14 @@ var popupInterface = &wlproto.Interface{
 			Name:   "destroy",
 			Type:   "destructor",
 			Since:  1,
-			Method: reflect.ValueOf(PopupRequests.Destroy),
+			Method: reflect.ValueOf(PopupImplementation.Destroy),
 			Args:   []wlproto.Arg{},
 		},
 		{
 			Name:   "grab",
 			Type:   "",
 			Since:  1,
-			Method: reflect.ValueOf(PopupRequests.Grab),
+			Method: reflect.ValueOf(PopupImplementation.Grab),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(wayland.Seat{})},
 				{Type: wlproto.ArgTypeUint},
@@ -879,7 +879,7 @@ var popupInterface = &wlproto.Interface{
 			Name:   "reposition",
 			Type:   "",
 			Since:  3,
-			Method: reflect.ValueOf(PopupRequests.Reposition),
+			Method: reflect.ValueOf(PopupImplementation.Reposition),
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeObject, Aux: reflect.TypeOf(Positioner{})},
 				{Type: wlproto.ArgTypeUint},
@@ -940,7 +940,7 @@ type Popup struct{ wlserver.Resource }
 
 func (Popup) Interface() *wlproto.Interface { return popupInterface }
 
-type PopupRequests interface {
+type PopupImplementation interface {
 	Destroy(obj Popup)
 	Grab(obj Popup, seat wayland.Seat, serial uint32)
 	Reposition(obj Popup, positioner Positioner, token uint32)
