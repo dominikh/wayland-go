@@ -311,7 +311,7 @@ func (b *Builder) printSpecs(out io.Writer) {
 	printImports := func() {
 		fmt.Fprintln(out, "import (")
 		for imp := range b.Imports {
-			fmt.Fprintf(out, "\t%q\n", imp)
+			fmt.Fprintf(out, "%q\n", imp)
 		}
 		fmt.Fprintln(out, ")")
 		fmt.Fprintln(out, "var _ wlshared.Fixed\n") // make sure the import isn't unused
@@ -320,20 +320,20 @@ func (b *Builder) printSpecs(out io.Writer) {
 	printMaps := func() {
 		fmt.Fprintln(b, "var interfaceNames = map[string]string{")
 		for _, iface := range b.Spec.Interfaces {
-			fmt.Fprintf(b, "\t%q: %q,\n", iface.Name, b.typeName(iface.Name))
+			fmt.Fprintf(b, "%q: %q,\n", iface.Name, b.typeName(iface.Name))
 		}
 		fmt.Fprint(b, "}\n\n")
 
 		fmt.Fprintln(b, "var Interfaces = map[string]*wlproto.Interface{")
 		for _, iface := range b.Spec.Interfaces {
-			fmt.Fprintf(b, "\t%q: %s,\n", iface.Name, b.wlprotoInterfaceName(iface))
+			fmt.Fprintf(b, "%q: %s,\n", iface.Name, b.wlprotoInterfaceName(iface))
 		}
 		fmt.Fprint(b, "}\n\n")
 
 		fmt.Fprintln(b, "var Requests = map[string]*wlproto.Request{")
 		for _, iface := range b.Spec.Interfaces {
 			for ireq, req := range iface.Requests {
-				fmt.Fprintf(b, "\t\"%s_%s\": &%s.Requests[%d],\n", iface.Name, req.Name, b.wlprotoInterfaceName(iface), ireq)
+				fmt.Fprintf(b, "\"%s_%s\": &%s.Requests[%d],\n", iface.Name, req.Name, b.wlprotoInterfaceName(iface), ireq)
 			}
 		}
 		fmt.Fprint(b, "}\n\n")
@@ -341,7 +341,7 @@ func (b *Builder) printSpecs(out io.Writer) {
 		fmt.Fprintln(b, "var Events = map[string]*wlproto.Event{")
 		for _, iface := range b.Spec.Interfaces {
 			for iev, ev := range iface.Events {
-				fmt.Fprintf(b, "\t\"%s_%s\": &%s.Events[%d],\n", iface.Name, ev.Name, b.wlprotoInterfaceName(iface), iev)
+				fmt.Fprintf(b, "\"%s_%s\": &%s.Events[%d],\n", iface.Name, ev.Name, b.wlprotoInterfaceName(iface), iev)
 			}
 		}
 		fmt.Fprintln(b, "}")
@@ -356,9 +356,9 @@ func (b *Builder) printSpecs(out io.Writer) {
 				for _, entry := range enum.Entries {
 					doc := enumEntryDocString(entry)
 					if doc != "" {
-						fmt.Fprintf(b, "\t%s\n", doc)
+						fmt.Fprintf(b, "%s\n", doc)
 					}
-					fmt.Fprintf(b, "\t%[1]s%[2]s%[3]s %[1]s%[2]s = %[4]s\n", b.typeName(iface.Name), exportedGoIdentifier(enum.Name), exportedGoIdentifier(entry.Name), entry.Value)
+					fmt.Fprintf(b, "%[1]s%[2]s%[3]s %[1]s%[2]s = %[4]s\n", b.typeName(iface.Name), exportedGoIdentifier(enum.Name), exportedGoIdentifier(entry.Name), entry.Value)
 				}
 				fmt.Fprintln(b, ")")
 			}
@@ -366,54 +366,54 @@ func (b *Builder) printSpecs(out io.Writer) {
 
 		printInterfaceVar := func() {
 			fmt.Fprintf(b, "var %s = &wlproto.Interface{\n", b.wlprotoInterfaceName(iface))
-			fmt.Fprintf(b, "\tName: %q,\n", iface.Name)
-			fmt.Fprintf(b, "\tVersion: %s,\n", iface.Version)
+			fmt.Fprintf(b, "Name: %q,\n", iface.Name)
+			fmt.Fprintf(b, "Version: %s,\n", iface.Version)
 			if b.ServerMode {
-				fmt.Fprintf(b, "\tType: reflect.TypeOf(%s{}),\n", b.typeName(iface.Name))
+				fmt.Fprintf(b, "Type: reflect.TypeOf(%s{}),\n", b.typeName(iface.Name))
 			}
 
-			fmt.Fprintln(b, "\tRequests: []wlproto.Request{")
+			fmt.Fprintln(b, "Requests: []wlproto.Request{")
 			for _, req := range iface.Requests {
 				if req.Since == "" {
 					req.Since = "1"
 				}
-				fmt.Fprintln(b, "\t\t{")
-				fmt.Fprintf(b, "\t\t\tName: %q,\n", req.Name)
-				fmt.Fprintf(b, "\t\t\tType: %q,\n", req.Type)
-				fmt.Fprintf(b, "\t\t\tSince: %s,\n", req.Since)
+				fmt.Fprintln(b, "{")
+				fmt.Fprintf(b, "Name: %q,\n", req.Name)
+				fmt.Fprintf(b, "Type: %q,\n", req.Type)
+				fmt.Fprintf(b, "Since: %s,\n", req.Since)
 
 				if b.ServerMode {
 					fmt.Fprintf(b, "Method: reflect.ValueOf(%s.%s),\n", b.eventsTypeName(iface), exportedGoIdentifier(req.Name))
 				}
 
-				fmt.Fprintln(b, "\t\t\tArgs: []wlproto.Arg{")
+				fmt.Fprintln(b, "Args: []wlproto.Arg{")
 				for _, arg := range req.Args {
-					fmt.Fprintf(b, "\t\t\t\t%s,\n", b.wlprotoArg(arg, iface))
+					fmt.Fprintf(b, "%s,\n", b.wlprotoArg(arg, iface))
 				}
-				fmt.Fprintln(b, "\t\t\t},")
+				fmt.Fprintln(b, "},")
 
-				fmt.Fprintln(b, "\t\t},")
+				fmt.Fprintln(b, "},")
 			}
-			fmt.Fprintln(b, "\t},")
+			fmt.Fprintln(b, "},")
 
-			fmt.Fprintln(b, "\tEvents: []wlproto.Event{")
+			fmt.Fprintln(b, "Events: []wlproto.Event{")
 			for _, ev := range iface.Events {
 				if ev.Since == "" {
 					ev.Since = "1"
 				}
-				fmt.Fprintln(b, "\t\t{")
-				fmt.Fprintf(b, "\t\t\tName: %q,\n", ev.Name)
-				fmt.Fprintf(b, "\t\t\tSince: %s,\n", ev.Since)
+				fmt.Fprintln(b, "{")
+				fmt.Fprintf(b, "Name: %q,\n", ev.Name)
+				fmt.Fprintf(b, "Since: %s,\n", ev.Since)
 
-				fmt.Fprintln(b, "\t\t\tArgs: []wlproto.Arg{")
+				fmt.Fprintln(b, "Args: []wlproto.Arg{")
 				for _, arg := range ev.Args {
-					fmt.Fprintf(b, "\t\t\t\t%s,\n", b.wlprotoArg(arg, iface))
+					fmt.Fprintf(b, "%s,\n", b.wlprotoArg(arg, iface))
 				}
-				fmt.Fprintln(b, "\t\t\t},")
+				fmt.Fprintln(b, "},")
 
-				fmt.Fprintln(b, "\t\t},")
+				fmt.Fprintln(b, "},")
 			}
-			fmt.Fprintln(b, "\t},")
+			fmt.Fprintln(b, "},")
 
 			fmt.Fprintln(b, "}")
 		}
@@ -422,18 +422,18 @@ func (b *Builder) printSpecs(out io.Writer) {
 			if b.ServerMode {
 				fmt.Fprintf(b, "type %s interface {\n", b.eventsTypeName(iface))
 				for _, req := range iface.Requests {
-					fmt.Fprintf(b, "\t%s(obj %s,", exportedGoIdentifier(req.Name), b.typeName(iface.Name))
+					fmt.Fprintf(b, "%s(obj %s,", exportedGoIdentifier(req.Name), b.typeName(iface.Name))
 					for _, arg := range req.Args {
 						fmt.Fprintf(b, "%s %s,", goIdentifier(arg.Name), b.goTypeFromWlType(arg, iface))
 					}
 					fmt.Fprintln(b, ")")
 				}
-				fmt.Fprintln(b, "\tOnDestroy(wlserver.Object)")
+				fmt.Fprintln(b, "OnDestroy(wlserver.Object)")
 				fmt.Fprint(b, "}\n\n")
 			} else {
 				fmt.Fprintf(b, "type %s struct {\n", b.eventsTypeName(iface))
 				for _, ev := range iface.Events {
-					fmt.Fprintf(b, "\t%s func(obj *%s,", exportedGoIdentifier(ev.Name), b.typeName(iface.Name))
+					fmt.Fprintf(b, "%s func(obj *%s,", exportedGoIdentifier(ev.Name), b.typeName(iface.Name))
 					for _, arg := range ev.Args {
 						fmt.Fprintf(b, "%s %s,", goIdentifier(arg.Name), b.goTypeFromWlType(arg, iface))
 					}
@@ -457,20 +457,20 @@ func (b *Builder) printSpecs(out io.Writer) {
 
 			if !b.ServerMode {
 				fmt.Fprintf(b, "func (obj *%[1]s) WithQueue(queue *wlclient.EventQueue) *%[1]s {\n", b.typeName(iface.Name))
-				fmt.Fprintf(b, "\twobj := &%s{}\n", b.typeName(iface.Name))
-				fmt.Fprintf(b, "\tobj.Conn().NewWrapper(obj, wobj, queue)\n")
-				fmt.Fprintf(b, "\treturn wobj\n")
+				fmt.Fprintf(b, "wobj := &%s{}\n", b.typeName(iface.Name))
+				fmt.Fprintf(b, "obj.Conn().NewWrapper(obj, wobj, queue)\n")
+				fmt.Fprintf(b, "return wobj\n")
 				fmt.Fprintf(b, "}\n\n")
 			}
 
 			printInterfaceEventsType()
 			if b.ServerMode {
 				fmt.Fprintf(b, "func (obj %s) SetImplementation(impl %s) {\n", b.typeName(iface.Name), b.eventsTypeName(iface))
-				fmt.Fprintln(b, "\tobj.Resource.SetImplementation(impl)")
+				fmt.Fprintln(b, "obj.Resource.SetImplementation(impl)")
 				fmt.Fprint(b, "}\n\n")
 			} else {
 				fmt.Fprintf(b, "func (obj *%s) AddListener(listeners %s) {\n", b.typeName(iface.Name), b.eventsTypeName(iface))
-				fmt.Fprint(b, "\tobj.Proxy.SetListeners(")
+				fmt.Fprint(b, "obj.Proxy.SetListeners(")
 				for _, ev := range iface.Events {
 					fmt.Fprintf(b, "listeners.%s,", exportedGoIdentifier(ev.Name))
 				}
@@ -524,14 +524,14 @@ func (b *Builder) printSpecs(out io.Writer) {
 				fmt.Fprintln(b, ")")
 			} else {
 				if ctor.Interface != "" {
-					fmt.Fprintf(b, "\t_ret := &%s{}\n", b.typeName(ctor.Interface))
-					fmt.Fprintln(b, "\tobj.Conn().NewProxy(0, _ret, obj.Queue())")
+					fmt.Fprintf(b, "_ret := &%s{}\n", b.typeName(ctor.Interface))
+					fmt.Fprintln(b, "obj.Conn().NewProxy(0, _ret, obj.Queue())")
 				}
 
 				if typ == "destructor" {
-					fmt.Fprintf(b, "\tobj.Conn().SendDestructor(obj, %d, ", ireq)
+					fmt.Fprintf(b, "obj.Conn().SendDestructor(obj, %d, ", ireq)
 				} else {
-					fmt.Fprintf(b, "\tobj.Conn().SendRequest(obj, %d, ", ireq)
+					fmt.Fprintf(b, "obj.Conn().SendRequest(obj, %d, ", ireq)
 				}
 				for _, arg := range args {
 					if arg.Type == "new_id" {
@@ -547,7 +547,7 @@ func (b *Builder) printSpecs(out io.Writer) {
 				fmt.Fprintln(b, ")")
 
 				if ctor.Interface != "" {
-					fmt.Fprintln(b, "\treturn _ret")
+					fmt.Fprintln(b, "return _ret")
 				}
 			}
 
