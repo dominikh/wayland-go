@@ -135,7 +135,7 @@ func (b *Builder) wlprotoInterfaceName(iface elInterface) string {
 	if len(name) == 0 {
 		// XXX
 	}
-	return goIdentifier(name) + "Interface"
+	return exportedGoIdentifier(name) + "Interface"
 }
 
 func (b *Builder) wlprotoArg(arg elArg, ctx elInterface) string {
