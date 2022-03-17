@@ -38,153 +38,156 @@ var interfaceNames = map[string]string{
 }
 
 var Interfaces = map[string]*wlproto.Interface{
-	"wl_display":             displayInterface,
-	"wl_registry":            registryInterface,
-	"wl_callback":            callbackInterface,
-	"wl_compositor":          compositorInterface,
-	"wl_shm_pool":            shmPoolInterface,
-	"wl_shm":                 shmInterface,
-	"wl_buffer":              bufferInterface,
-	"wl_data_offer":          dataOfferInterface,
-	"wl_data_source":         dataSourceInterface,
-	"wl_data_device":         dataDeviceInterface,
-	"wl_data_device_manager": dataDeviceManagerInterface,
-	"wl_shell":               shellInterface,
-	"wl_shell_surface":       shellSurfaceInterface,
-	"wl_surface":             surfaceInterface,
-	"wl_seat":                seatInterface,
-	"wl_pointer":             pointerInterface,
-	"wl_keyboard":            keyboardInterface,
-	"wl_touch":               touchInterface,
-	"wl_output":              outputInterface,
-	"wl_region":              regionInterface,
-	"wl_subcompositor":       subcompositorInterface,
-	"wl_subsurface":          subsurfaceInterface,
+	"wl_display":             DisplayInterface,
+	"wl_registry":            RegistryInterface,
+	"wl_callback":            CallbackInterface,
+	"wl_compositor":          CompositorInterface,
+	"wl_shm_pool":            ShmPoolInterface,
+	"wl_shm":                 ShmInterface,
+	"wl_buffer":              BufferInterface,
+	"wl_data_offer":          DataOfferInterface,
+	"wl_data_source":         DataSourceInterface,
+	"wl_data_device":         DataDeviceInterface,
+	"wl_data_device_manager": DataDeviceManagerInterface,
+	"wl_shell":               ShellInterface,
+	"wl_shell_surface":       ShellSurfaceInterface,
+	"wl_surface":             SurfaceInterface,
+	"wl_seat":                SeatInterface,
+	"wl_pointer":             PointerInterface,
+	"wl_keyboard":            KeyboardInterface,
+	"wl_touch":               TouchInterface,
+	"wl_output":              OutputInterface,
+	"wl_region":              RegionInterface,
+	"wl_subcompositor":       SubcompositorInterface,
+	"wl_subsurface":          SubsurfaceInterface,
 }
 
 var Requests = map[string]*wlproto.Request{
-	"wl_display_sync":                           &displayInterface.Requests[0],
-	"wl_display_get_registry":                   &displayInterface.Requests[1],
-	"wl_registry_bind":                          &registryInterface.Requests[0],
-	"wl_compositor_create_surface":              &compositorInterface.Requests[0],
-	"wl_compositor_create_region":               &compositorInterface.Requests[1],
-	"wl_shm_pool_create_buffer":                 &shmPoolInterface.Requests[0],
-	"wl_shm_pool_destroy":                       &shmPoolInterface.Requests[1],
-	"wl_shm_pool_resize":                        &shmPoolInterface.Requests[2],
-	"wl_shm_create_pool":                        &shmInterface.Requests[0],
-	"wl_buffer_destroy":                         &bufferInterface.Requests[0],
-	"wl_data_offer_accept":                      &dataOfferInterface.Requests[0],
-	"wl_data_offer_receive":                     &dataOfferInterface.Requests[1],
-	"wl_data_offer_destroy":                     &dataOfferInterface.Requests[2],
-	"wl_data_offer_finish":                      &dataOfferInterface.Requests[3],
-	"wl_data_offer_set_actions":                 &dataOfferInterface.Requests[4],
-	"wl_data_source_offer":                      &dataSourceInterface.Requests[0],
-	"wl_data_source_destroy":                    &dataSourceInterface.Requests[1],
-	"wl_data_source_set_actions":                &dataSourceInterface.Requests[2],
-	"wl_data_device_start_drag":                 &dataDeviceInterface.Requests[0],
-	"wl_data_device_set_selection":              &dataDeviceInterface.Requests[1],
-	"wl_data_device_release":                    &dataDeviceInterface.Requests[2],
-	"wl_data_device_manager_create_data_source": &dataDeviceManagerInterface.Requests[0],
-	"wl_data_device_manager_get_data_device":    &dataDeviceManagerInterface.Requests[1],
-	"wl_shell_get_shell_surface":                &shellInterface.Requests[0],
-	"wl_shell_surface_pong":                     &shellSurfaceInterface.Requests[0],
-	"wl_shell_surface_move":                     &shellSurfaceInterface.Requests[1],
-	"wl_shell_surface_resize":                   &shellSurfaceInterface.Requests[2],
-	"wl_shell_surface_set_toplevel":             &shellSurfaceInterface.Requests[3],
-	"wl_shell_surface_set_transient":            &shellSurfaceInterface.Requests[4],
-	"wl_shell_surface_set_fullscreen":           &shellSurfaceInterface.Requests[5],
-	"wl_shell_surface_set_popup":                &shellSurfaceInterface.Requests[6],
-	"wl_shell_surface_set_maximized":            &shellSurfaceInterface.Requests[7],
-	"wl_shell_surface_set_title":                &shellSurfaceInterface.Requests[8],
-	"wl_shell_surface_set_class":                &shellSurfaceInterface.Requests[9],
-	"wl_surface_destroy":                        &surfaceInterface.Requests[0],
-	"wl_surface_attach":                         &surfaceInterface.Requests[1],
-	"wl_surface_damage":                         &surfaceInterface.Requests[2],
-	"wl_surface_frame":                          &surfaceInterface.Requests[3],
-	"wl_surface_set_opaque_region":              &surfaceInterface.Requests[4],
-	"wl_surface_set_input_region":               &surfaceInterface.Requests[5],
-	"wl_surface_commit":                         &surfaceInterface.Requests[6],
-	"wl_surface_set_buffer_transform":           &surfaceInterface.Requests[7],
-	"wl_surface_set_buffer_scale":               &surfaceInterface.Requests[8],
-	"wl_surface_damage_buffer":                  &surfaceInterface.Requests[9],
-	"wl_seat_get_pointer":                       &seatInterface.Requests[0],
-	"wl_seat_get_keyboard":                      &seatInterface.Requests[1],
-	"wl_seat_get_touch":                         &seatInterface.Requests[2],
-	"wl_seat_release":                           &seatInterface.Requests[3],
-	"wl_pointer_set_cursor":                     &pointerInterface.Requests[0],
-	"wl_pointer_release":                        &pointerInterface.Requests[1],
-	"wl_keyboard_release":                       &keyboardInterface.Requests[0],
-	"wl_touch_release":                          &touchInterface.Requests[0],
-	"wl_output_release":                         &outputInterface.Requests[0],
-	"wl_region_destroy":                         &regionInterface.Requests[0],
-	"wl_region_add":                             &regionInterface.Requests[1],
-	"wl_region_subtract":                        &regionInterface.Requests[2],
-	"wl_subcompositor_destroy":                  &subcompositorInterface.Requests[0],
-	"wl_subcompositor_get_subsurface":           &subcompositorInterface.Requests[1],
-	"wl_subsurface_destroy":                     &subsurfaceInterface.Requests[0],
-	"wl_subsurface_set_position":                &subsurfaceInterface.Requests[1],
-	"wl_subsurface_place_above":                 &subsurfaceInterface.Requests[2],
-	"wl_subsurface_place_below":                 &subsurfaceInterface.Requests[3],
-	"wl_subsurface_set_sync":                    &subsurfaceInterface.Requests[4],
-	"wl_subsurface_set_desync":                  &subsurfaceInterface.Requests[5],
+	"wl_display_sync":                           &DisplayInterface.Requests[0],
+	"wl_display_get_registry":                   &DisplayInterface.Requests[1],
+	"wl_registry_bind":                          &RegistryInterface.Requests[0],
+	"wl_compositor_create_surface":              &CompositorInterface.Requests[0],
+	"wl_compositor_create_region":               &CompositorInterface.Requests[1],
+	"wl_shm_pool_create_buffer":                 &ShmPoolInterface.Requests[0],
+	"wl_shm_pool_destroy":                       &ShmPoolInterface.Requests[1],
+	"wl_shm_pool_resize":                        &ShmPoolInterface.Requests[2],
+	"wl_shm_create_pool":                        &ShmInterface.Requests[0],
+	"wl_buffer_destroy":                         &BufferInterface.Requests[0],
+	"wl_data_offer_accept":                      &DataOfferInterface.Requests[0],
+	"wl_data_offer_receive":                     &DataOfferInterface.Requests[1],
+	"wl_data_offer_destroy":                     &DataOfferInterface.Requests[2],
+	"wl_data_offer_finish":                      &DataOfferInterface.Requests[3],
+	"wl_data_offer_set_actions":                 &DataOfferInterface.Requests[4],
+	"wl_data_source_offer":                      &DataSourceInterface.Requests[0],
+	"wl_data_source_destroy":                    &DataSourceInterface.Requests[1],
+	"wl_data_source_set_actions":                &DataSourceInterface.Requests[2],
+	"wl_data_device_start_drag":                 &DataDeviceInterface.Requests[0],
+	"wl_data_device_set_selection":              &DataDeviceInterface.Requests[1],
+	"wl_data_device_release":                    &DataDeviceInterface.Requests[2],
+	"wl_data_device_manager_create_data_source": &DataDeviceManagerInterface.Requests[0],
+	"wl_data_device_manager_get_data_device":    &DataDeviceManagerInterface.Requests[1],
+	"wl_shell_get_shell_surface":                &ShellInterface.Requests[0],
+	"wl_shell_surface_pong":                     &ShellSurfaceInterface.Requests[0],
+	"wl_shell_surface_move":                     &ShellSurfaceInterface.Requests[1],
+	"wl_shell_surface_resize":                   &ShellSurfaceInterface.Requests[2],
+	"wl_shell_surface_set_toplevel":             &ShellSurfaceInterface.Requests[3],
+	"wl_shell_surface_set_transient":            &ShellSurfaceInterface.Requests[4],
+	"wl_shell_surface_set_fullscreen":           &ShellSurfaceInterface.Requests[5],
+	"wl_shell_surface_set_popup":                &ShellSurfaceInterface.Requests[6],
+	"wl_shell_surface_set_maximized":            &ShellSurfaceInterface.Requests[7],
+	"wl_shell_surface_set_title":                &ShellSurfaceInterface.Requests[8],
+	"wl_shell_surface_set_class":                &ShellSurfaceInterface.Requests[9],
+	"wl_surface_destroy":                        &SurfaceInterface.Requests[0],
+	"wl_surface_attach":                         &SurfaceInterface.Requests[1],
+	"wl_surface_damage":                         &SurfaceInterface.Requests[2],
+	"wl_surface_frame":                          &SurfaceInterface.Requests[3],
+	"wl_surface_set_opaque_region":              &SurfaceInterface.Requests[4],
+	"wl_surface_set_input_region":               &SurfaceInterface.Requests[5],
+	"wl_surface_commit":                         &SurfaceInterface.Requests[6],
+	"wl_surface_set_buffer_transform":           &SurfaceInterface.Requests[7],
+	"wl_surface_set_buffer_scale":               &SurfaceInterface.Requests[8],
+	"wl_surface_damage_buffer":                  &SurfaceInterface.Requests[9],
+	"wl_surface_offset":                         &SurfaceInterface.Requests[10],
+	"wl_seat_get_pointer":                       &SeatInterface.Requests[0],
+	"wl_seat_get_keyboard":                      &SeatInterface.Requests[1],
+	"wl_seat_get_touch":                         &SeatInterface.Requests[2],
+	"wl_seat_release":                           &SeatInterface.Requests[3],
+	"wl_pointer_set_cursor":                     &PointerInterface.Requests[0],
+	"wl_pointer_release":                        &PointerInterface.Requests[1],
+	"wl_keyboard_release":                       &KeyboardInterface.Requests[0],
+	"wl_touch_release":                          &TouchInterface.Requests[0],
+	"wl_output_release":                         &OutputInterface.Requests[0],
+	"wl_region_destroy":                         &RegionInterface.Requests[0],
+	"wl_region_add":                             &RegionInterface.Requests[1],
+	"wl_region_subtract":                        &RegionInterface.Requests[2],
+	"wl_subcompositor_destroy":                  &SubcompositorInterface.Requests[0],
+	"wl_subcompositor_get_subsurface":           &SubcompositorInterface.Requests[1],
+	"wl_subsurface_destroy":                     &SubsurfaceInterface.Requests[0],
+	"wl_subsurface_set_position":                &SubsurfaceInterface.Requests[1],
+	"wl_subsurface_place_above":                 &SubsurfaceInterface.Requests[2],
+	"wl_subsurface_place_below":                 &SubsurfaceInterface.Requests[3],
+	"wl_subsurface_set_sync":                    &SubsurfaceInterface.Requests[4],
+	"wl_subsurface_set_desync":                  &SubsurfaceInterface.Requests[5],
 }
 
 var Events = map[string]*wlproto.Event{
-	"wl_display_error":                  &displayInterface.Events[0],
-	"wl_display_delete_id":              &displayInterface.Events[1],
-	"wl_registry_global":                &registryInterface.Events[0],
-	"wl_registry_global_remove":         &registryInterface.Events[1],
-	"wl_callback_done":                  &callbackInterface.Events[0],
-	"wl_shm_format":                     &shmInterface.Events[0],
-	"wl_buffer_release":                 &bufferInterface.Events[0],
-	"wl_data_offer_offer":               &dataOfferInterface.Events[0],
-	"wl_data_offer_source_actions":      &dataOfferInterface.Events[1],
-	"wl_data_offer_action":              &dataOfferInterface.Events[2],
-	"wl_data_source_target":             &dataSourceInterface.Events[0],
-	"wl_data_source_send":               &dataSourceInterface.Events[1],
-	"wl_data_source_cancelled":          &dataSourceInterface.Events[2],
-	"wl_data_source_dnd_drop_performed": &dataSourceInterface.Events[3],
-	"wl_data_source_dnd_finished":       &dataSourceInterface.Events[4],
-	"wl_data_source_action":             &dataSourceInterface.Events[5],
-	"wl_data_device_data_offer":         &dataDeviceInterface.Events[0],
-	"wl_data_device_enter":              &dataDeviceInterface.Events[1],
-	"wl_data_device_leave":              &dataDeviceInterface.Events[2],
-	"wl_data_device_motion":             &dataDeviceInterface.Events[3],
-	"wl_data_device_drop":               &dataDeviceInterface.Events[4],
-	"wl_data_device_selection":          &dataDeviceInterface.Events[5],
-	"wl_shell_surface_ping":             &shellSurfaceInterface.Events[0],
-	"wl_shell_surface_configure":        &shellSurfaceInterface.Events[1],
-	"wl_shell_surface_popup_done":       &shellSurfaceInterface.Events[2],
-	"wl_surface_enter":                  &surfaceInterface.Events[0],
-	"wl_surface_leave":                  &surfaceInterface.Events[1],
-	"wl_seat_capabilities":              &seatInterface.Events[0],
-	"wl_seat_name":                      &seatInterface.Events[1],
-	"wl_pointer_enter":                  &pointerInterface.Events[0],
-	"wl_pointer_leave":                  &pointerInterface.Events[1],
-	"wl_pointer_motion":                 &pointerInterface.Events[2],
-	"wl_pointer_button":                 &pointerInterface.Events[3],
-	"wl_pointer_axis":                   &pointerInterface.Events[4],
-	"wl_pointer_frame":                  &pointerInterface.Events[5],
-	"wl_pointer_axis_source":            &pointerInterface.Events[6],
-	"wl_pointer_axis_stop":              &pointerInterface.Events[7],
-	"wl_pointer_axis_discrete":          &pointerInterface.Events[8],
-	"wl_keyboard_keymap":                &keyboardInterface.Events[0],
-	"wl_keyboard_enter":                 &keyboardInterface.Events[1],
-	"wl_keyboard_leave":                 &keyboardInterface.Events[2],
-	"wl_keyboard_key":                   &keyboardInterface.Events[3],
-	"wl_keyboard_modifiers":             &keyboardInterface.Events[4],
-	"wl_keyboard_repeat_info":           &keyboardInterface.Events[5],
-	"wl_touch_down":                     &touchInterface.Events[0],
-	"wl_touch_up":                       &touchInterface.Events[1],
-	"wl_touch_motion":                   &touchInterface.Events[2],
-	"wl_touch_frame":                    &touchInterface.Events[3],
-	"wl_touch_cancel":                   &touchInterface.Events[4],
-	"wl_touch_shape":                    &touchInterface.Events[5],
-	"wl_touch_orientation":              &touchInterface.Events[6],
-	"wl_output_geometry":                &outputInterface.Events[0],
-	"wl_output_mode":                    &outputInterface.Events[1],
-	"wl_output_done":                    &outputInterface.Events[2],
-	"wl_output_scale":                   &outputInterface.Events[3],
+	"wl_display_error":                  &DisplayInterface.Events[0],
+	"wl_display_delete_id":              &DisplayInterface.Events[1],
+	"wl_registry_global":                &RegistryInterface.Events[0],
+	"wl_registry_global_remove":         &RegistryInterface.Events[1],
+	"wl_callback_done":                  &CallbackInterface.Events[0],
+	"wl_shm_format":                     &ShmInterface.Events[0],
+	"wl_buffer_release":                 &BufferInterface.Events[0],
+	"wl_data_offer_offer":               &DataOfferInterface.Events[0],
+	"wl_data_offer_source_actions":      &DataOfferInterface.Events[1],
+	"wl_data_offer_action":              &DataOfferInterface.Events[2],
+	"wl_data_source_target":             &DataSourceInterface.Events[0],
+	"wl_data_source_send":               &DataSourceInterface.Events[1],
+	"wl_data_source_cancelled":          &DataSourceInterface.Events[2],
+	"wl_data_source_dnd_drop_performed": &DataSourceInterface.Events[3],
+	"wl_data_source_dnd_finished":       &DataSourceInterface.Events[4],
+	"wl_data_source_action":             &DataSourceInterface.Events[5],
+	"wl_data_device_data_offer":         &DataDeviceInterface.Events[0],
+	"wl_data_device_enter":              &DataDeviceInterface.Events[1],
+	"wl_data_device_leave":              &DataDeviceInterface.Events[2],
+	"wl_data_device_motion":             &DataDeviceInterface.Events[3],
+	"wl_data_device_drop":               &DataDeviceInterface.Events[4],
+	"wl_data_device_selection":          &DataDeviceInterface.Events[5],
+	"wl_shell_surface_ping":             &ShellSurfaceInterface.Events[0],
+	"wl_shell_surface_configure":        &ShellSurfaceInterface.Events[1],
+	"wl_shell_surface_popup_done":       &ShellSurfaceInterface.Events[2],
+	"wl_surface_enter":                  &SurfaceInterface.Events[0],
+	"wl_surface_leave":                  &SurfaceInterface.Events[1],
+	"wl_seat_capabilities":              &SeatInterface.Events[0],
+	"wl_seat_name":                      &SeatInterface.Events[1],
+	"wl_pointer_enter":                  &PointerInterface.Events[0],
+	"wl_pointer_leave":                  &PointerInterface.Events[1],
+	"wl_pointer_motion":                 &PointerInterface.Events[2],
+	"wl_pointer_button":                 &PointerInterface.Events[3],
+	"wl_pointer_axis":                   &PointerInterface.Events[4],
+	"wl_pointer_frame":                  &PointerInterface.Events[5],
+	"wl_pointer_axis_source":            &PointerInterface.Events[6],
+	"wl_pointer_axis_stop":              &PointerInterface.Events[7],
+	"wl_pointer_axis_discrete":          &PointerInterface.Events[8],
+	"wl_keyboard_keymap":                &KeyboardInterface.Events[0],
+	"wl_keyboard_enter":                 &KeyboardInterface.Events[1],
+	"wl_keyboard_leave":                 &KeyboardInterface.Events[2],
+	"wl_keyboard_key":                   &KeyboardInterface.Events[3],
+	"wl_keyboard_modifiers":             &KeyboardInterface.Events[4],
+	"wl_keyboard_repeat_info":           &KeyboardInterface.Events[5],
+	"wl_touch_down":                     &TouchInterface.Events[0],
+	"wl_touch_up":                       &TouchInterface.Events[1],
+	"wl_touch_motion":                   &TouchInterface.Events[2],
+	"wl_touch_frame":                    &TouchInterface.Events[3],
+	"wl_touch_cancel":                   &TouchInterface.Events[4],
+	"wl_touch_shape":                    &TouchInterface.Events[5],
+	"wl_touch_orientation":              &TouchInterface.Events[6],
+	"wl_output_geometry":                &OutputInterface.Events[0],
+	"wl_output_mode":                    &OutputInterface.Events[1],
+	"wl_output_done":                    &OutputInterface.Events[2],
+	"wl_output_scale":                   &OutputInterface.Events[3],
+	"wl_output_name":                    &OutputInterface.Events[4],
+	"wl_output_description":             &OutputInterface.Events[5],
 }
 
 // These errors are global and can be emitted in response to any
@@ -202,7 +205,7 @@ const (
 	DisplayErrorImplementation DisplayError = 3
 )
 
-var displayInterface = &wlproto.Interface{
+var DisplayInterface = &wlproto.Interface{
 	Name:    "wl_display",
 	Version: 1,
 	Requests: []wlproto.Request{
@@ -247,7 +250,7 @@ var displayInterface = &wlproto.Interface{
 // is used for internal Wayland protocol features.
 type Display struct{ wlclient.Proxy }
 
-func (*Display) Interface() *wlproto.Interface { return displayInterface }
+func (*Display) Interface() *wlproto.Interface { return DisplayInterface }
 
 func (obj *Display) WithQueue(queue *wlclient.EventQueue) *Display {
 	wobj := &Display{}
@@ -300,7 +303,7 @@ func (obj *Display) GetRegistry() *Registry {
 
 func (obj *Display) Destroy() { obj.Conn().Destroy(obj) }
 
-var registryInterface = &wlproto.Interface{
+var RegistryInterface = &wlproto.Interface{
 	Name:    "wl_registry",
 	Version: 1,
 	Requests: []wlproto.Request{
@@ -356,7 +359,7 @@ var registryInterface = &wlproto.Interface{
 // the object.
 type Registry struct{ wlclient.Proxy }
 
-func (*Registry) Interface() *wlproto.Interface { return registryInterface }
+func (*Registry) Interface() *wlproto.Interface { return RegistryInterface }
 
 func (obj *Registry) WithQueue(queue *wlclient.EventQueue) *Registry {
 	wobj := &Registry{}
@@ -381,7 +384,7 @@ func (obj *Registry) Bind(name uint32, id wlclient.Object, version uint32) {
 
 func (obj *Registry) Destroy() { obj.Conn().Destroy(obj) }
 
-var callbackInterface = &wlproto.Interface{
+var CallbackInterface = &wlproto.Interface{
 	Name:     "wl_callback",
 	Version:  1,
 	Requests: []wlproto.Request{},
@@ -400,7 +403,7 @@ var callbackInterface = &wlproto.Interface{
 // the related request is done.
 type Callback struct{ wlclient.Proxy }
 
-func (*Callback) Interface() *wlproto.Interface { return callbackInterface }
+func (*Callback) Interface() *wlproto.Interface { return CallbackInterface }
 
 func (obj *Callback) WithQueue(queue *wlclient.EventQueue) *Callback {
 	wobj := &Callback{}
@@ -418,9 +421,9 @@ func (obj *Callback) AddListener(listeners CallbackEvents) {
 
 func (obj *Callback) Destroy() { obj.Conn().Destroy(obj) }
 
-var compositorInterface = &wlproto.Interface{
+var CompositorInterface = &wlproto.Interface{
 	Name:    "wl_compositor",
-	Version: 4,
+	Version: 5,
 	Requests: []wlproto.Request{
 		{
 			Name:  "create_surface",
@@ -447,7 +450,7 @@ var compositorInterface = &wlproto.Interface{
 // surfaces into one displayable output.
 type Compositor struct{ wlclient.Proxy }
 
-func (*Compositor) Interface() *wlproto.Interface { return compositorInterface }
+func (*Compositor) Interface() *wlproto.Interface { return CompositorInterface }
 
 func (obj *Compositor) WithQueue(queue *wlclient.EventQueue) *Compositor {
 	wobj := &Compositor{}
@@ -480,7 +483,7 @@ func (obj *Compositor) CreateRegion() *Region {
 
 func (obj *Compositor) Destroy() { obj.Conn().Destroy(obj) }
 
-var shmPoolInterface = &wlproto.Interface{
+var ShmPoolInterface = &wlproto.Interface{
 	Name:    "wl_shm_pool",
 	Version: 1,
 	Requests: []wlproto.Request{
@@ -524,7 +527,7 @@ var shmPoolInterface = &wlproto.Interface{
 // a surface or for many small buffers.
 type ShmPool struct{ wlclient.Proxy }
 
-func (*ShmPool) Interface() *wlproto.Interface { return shmPoolInterface }
+func (*ShmPool) Interface() *wlproto.Interface { return ShmPoolInterface }
 
 func (obj *ShmPool) WithQueue(queue *wlclient.EventQueue) *ShmPool {
 	wobj := &ShmPool{}
@@ -595,6 +598,9 @@ const (
 // The drm format codes match the macros defined in drm_fourcc.h, except
 // argb8888 and xrgb8888. The formats actually supported by the compositor
 // will be reported by the format event.
+//
+// For all wl_shm formats and unless specified in another protocol
+// extension, pre-multiplied alpha is used for pixel values.
 type ShmFormat uint32
 
 const (
@@ -788,9 +794,23 @@ const (
 	ShmFormatP012 ShmFormat = 0x32313050
 	// 2x2 subsampled Cr:Cb plane 16 bits per channel
 	ShmFormatP016 ShmFormat = 0x36313050
+	// [63:0] A:x:B:x:G:x:R:x 10:6:10:6:10:6:10:6 little endian
+	ShmFormatAxbxgxrx106106106106 ShmFormat = 0x30314241
+	// 2x2 subsampled Cr:Cb plane
+	ShmFormatNv15 ShmFormat = 0x3531564e
+	ShmFormatQ410 ShmFormat = 0x30313451
+	ShmFormatQ401 ShmFormat = 0x31303451
+	// [63:0] x:R:G:B 16:16:16:16 little endian
+	ShmFormatXrgb16161616 ShmFormat = 0x38345258
+	// [63:0] x:B:G:R 16:16:16:16 little endian
+	ShmFormatXbgr16161616 ShmFormat = 0x38344258
+	// [63:0] A:R:G:B 16:16:16:16 little endian
+	ShmFormatArgb16161616 ShmFormat = 0x38345241
+	// [63:0] A:B:G:R 16:16:16:16 little endian
+	ShmFormatAbgr16161616 ShmFormat = 0x38344241
 )
 
-var shmInterface = &wlproto.Interface{
+var ShmInterface = &wlproto.Interface{
 	Name:    "wl_shm",
 	Version: 1,
 	Requests: []wlproto.Request{
@@ -827,7 +847,7 @@ var shmInterface = &wlproto.Interface{
 // that can be used for buffers.
 type Shm struct{ wlclient.Proxy }
 
-func (*Shm) Interface() *wlproto.Interface { return shmInterface }
+func (*Shm) Interface() *wlproto.Interface { return ShmInterface }
 
 func (obj *Shm) WithQueue(queue *wlclient.EventQueue) *Shm {
 	wobj := &Shm{}
@@ -857,7 +877,7 @@ func (obj *Shm) CreatePool(fd uintptr, size int32) *ShmPool {
 
 func (obj *Shm) Destroy() { obj.Conn().Destroy(obj) }
 
-var bufferInterface = &wlproto.Interface{
+var BufferInterface = &wlproto.Interface{
 	Name:    "wl_buffer",
 	Version: 1,
 	Requests: []wlproto.Request{
@@ -878,13 +898,18 @@ var bufferInterface = &wlproto.Interface{
 }
 
 // A buffer provides the content for a wl_surface. Buffers are
-// created through factory interfaces such as wl_drm, wl_shm or
-// similar. It has a width and a height and can be attached to a
-// wl_surface, but the mechanism by which a client provides and
-// updates the contents is defined by the buffer factory interface.
+// created through factory interfaces such as wl_shm, wp_linux_buffer_params
+// (from the linux-dmabuf protocol extension) or similar. It has a width and
+// a height and can be attached to a wl_surface, but the mechanism by which a
+// client provides and updates the contents is defined by the buffer factory
+// interface.
+//
+// If the buffer uses a format that has an alpha channel, the alpha channel
+// is assumed to be premultiplied in the color channels unless otherwise
+// specified.
 type Buffer struct{ wlclient.Proxy }
 
-func (*Buffer) Interface() *wlproto.Interface { return bufferInterface }
+func (*Buffer) Interface() *wlproto.Interface { return BufferInterface }
 
 func (obj *Buffer) WithQueue(queue *wlclient.EventQueue) *Buffer {
 	wobj := &Buffer{}
@@ -921,7 +946,7 @@ const (
 	DataOfferErrorInvalidOffer DataOfferError = 3
 )
 
-var dataOfferInterface = &wlproto.Interface{
+var DataOfferInterface = &wlproto.Interface{
 	Name:    "wl_data_offer",
 	Version: 3,
 	Requests: []wlproto.Request{
@@ -998,7 +1023,7 @@ var dataOfferInterface = &wlproto.Interface{
 // data directly from the source client.
 type DataOffer struct{ wlclient.Proxy }
 
-func (*DataOffer) Interface() *wlproto.Interface { return dataOfferInterface }
+func (*DataOffer) Interface() *wlproto.Interface { return DataOfferInterface }
 
 func (obj *DataOffer) WithQueue(queue *wlclient.EventQueue) *DataOffer {
 	wobj := &DataOffer{}
@@ -1120,7 +1145,7 @@ const (
 	DataSourceErrorInvalidSource DataSourceError = 1
 )
 
-var dataSourceInterface = &wlproto.Interface{
+var DataSourceInterface = &wlproto.Interface{
 	Name:    "wl_data_source",
 	Version: 3,
 	Requests: []wlproto.Request{
@@ -1194,7 +1219,7 @@ var dataSourceInterface = &wlproto.Interface{
 // to requests to transfer the data.
 type DataSource struct{ wlclient.Proxy }
 
-func (*DataSource) Interface() *wlproto.Interface { return dataSourceInterface }
+func (*DataSource) Interface() *wlproto.Interface { return DataSourceInterface }
 
 func (obj *DataSource) WithQueue(queue *wlclient.EventQueue) *DataSource {
 	wobj := &DataSource{}
@@ -1251,7 +1276,7 @@ const (
 	DataDeviceErrorRole DataDeviceError = 0
 )
 
-var dataDeviceInterface = &wlproto.Interface{
+var DataDeviceInterface = &wlproto.Interface{
 	Name:    "wl_data_device",
 	Version: 3,
 	Requests: []wlproto.Request{
@@ -1337,7 +1362,7 @@ var dataDeviceInterface = &wlproto.Interface{
 // mechanisms such as copy-and-paste and drag-and-drop.
 type DataDevice struct{ wlclient.Proxy }
 
-func (*DataDevice) Interface() *wlproto.Interface { return dataDeviceInterface }
+func (*DataDevice) Interface() *wlproto.Interface { return DataDeviceInterface }
 
 func (obj *DataDevice) WithQueue(queue *wlclient.EventQueue) *DataDevice {
 	wobj := &DataDevice{}
@@ -1365,7 +1390,8 @@ func (obj *DataDevice) AddListener(listeners DataDeviceEvents) {
 // for the eventual data transfer. If source is NULL, enter, leave
 // and motion events are sent only to the client that initiated the
 // drag and the client is expected to handle the data passing
-// internally.
+// internally. If source is destroyed, the drag-and-drop session will be
+// cancelled.
 //
 // The origin surface is the surface where the drag originates and
 // the client must have an active implicit grab that matches the
@@ -1440,7 +1466,7 @@ const (
 	DataDeviceManagerDndActionAsk DataDeviceManagerDndAction = 4
 )
 
-var dataDeviceManagerInterface = &wlproto.Interface{
+var DataDeviceManagerInterface = &wlproto.Interface{
 	Name:    "wl_data_device_manager",
 	Version: 3,
 	Requests: []wlproto.Request{
@@ -1477,7 +1503,7 @@ var dataDeviceManagerInterface = &wlproto.Interface{
 // wl_data_offer.accept and wl_data_offer.finish for details.
 type DataDeviceManager struct{ wlclient.Proxy }
 
-func (*DataDeviceManager) Interface() *wlproto.Interface { return dataDeviceManagerInterface }
+func (*DataDeviceManager) Interface() *wlproto.Interface { return DataDeviceManagerInterface }
 
 func (obj *DataDeviceManager) WithQueue(queue *wlclient.EventQueue) *DataDeviceManager {
 	wobj := &DataDeviceManager{}
@@ -1517,7 +1543,7 @@ const (
 	ShellErrorRole ShellError = 0
 )
 
-var shellInterface = &wlproto.Interface{
+var ShellInterface = &wlproto.Interface{
 	Name:    "wl_shell",
 	Version: 1,
 	Requests: []wlproto.Request{
@@ -1544,7 +1570,7 @@ var shellInterface = &wlproto.Interface{
 // For desktop-style user interfaces, use xdg_shell.
 type Shell struct{ wlclient.Proxy }
 
-func (*Shell) Interface() *wlproto.Interface { return shellInterface }
+func (*Shell) Interface() *wlproto.Interface { return ShellInterface }
 
 func (obj *Shell) WithQueue(queue *wlclient.EventQueue) *Shell {
 	wobj := &Shell{}
@@ -1625,7 +1651,7 @@ const (
 	ShellSurfaceFullscreenMethodFill ShellSurfaceFullscreenMethod = 3
 )
 
-var shellSurfaceInterface = &wlproto.Interface{
+var ShellSurfaceInterface = &wlproto.Interface{
 	Name:    "wl_shell_surface",
 	Version: 1,
 	Requests: []wlproto.Request{
@@ -1759,7 +1785,7 @@ var shellSurfaceInterface = &wlproto.Interface{
 // the wl_surface object.
 type ShellSurface struct{ wlclient.Proxy }
 
-func (*ShellSurface) Interface() *wlproto.Interface { return shellSurfaceInterface }
+func (*ShellSurface) Interface() *wlproto.Interface { return ShellSurfaceInterface }
 
 func (obj *ShellSurface) WithQueue(queue *wlclient.EventQueue) *ShellSurface {
 	wobj := &ShellSurface{}
@@ -1932,11 +1958,15 @@ const (
 	SurfaceErrorInvalidScale SurfaceError = 0
 	// buffer transform value is invalid
 	SurfaceErrorInvalidTransform SurfaceError = 1
+	// buffer size is invalid
+	SurfaceErrorInvalidSize SurfaceError = 2
+	// buffer offset is invalid
+	SurfaceErrorInvalidOffset SurfaceError = 3
 )
 
-var surfaceInterface = &wlproto.Interface{
+var SurfaceInterface = &wlproto.Interface{
 	Name:    "wl_surface",
-	Version: 4,
+	Version: 5,
 	Requests: []wlproto.Request{
 		{
 			Name:  "destroy",
@@ -2022,6 +2052,15 @@ var surfaceInterface = &wlproto.Interface{
 				{Type: wlproto.ArgTypeInt},
 			},
 		},
+		{
+			Name:  "offset",
+			Type:  "",
+			Since: 5,
+			Args: []wlproto.Arg{
+				{Type: wlproto.ArgTypeInt},
+				{Type: wlproto.ArgTypeInt},
+			},
+		},
 	},
 	Events: []wlproto.Event{
 		{
@@ -2084,7 +2123,7 @@ var surfaceInterface = &wlproto.Interface{
 // switching is not allowed).
 type Surface struct{ wlclient.Proxy }
 
-func (*Surface) Interface() *wlproto.Interface { return surfaceInterface }
+func (*Surface) Interface() *wlproto.Interface { return SurfaceInterface }
 
 func (obj *Surface) WithQueue(queue *wlclient.EventQueue) *Surface {
 	wobj := &Surface{}
@@ -2110,14 +2149,22 @@ func (obj *Surface) Destroy() {
 //
 // The new size of the surface is calculated based on the buffer
 // size transformed by the inverse buffer_transform and the
-// inverse buffer_scale. This means that the supplied buffer
-// must be an integer multiple of the buffer_scale.
+// inverse buffer_scale. This means that at commit time the supplied
+// buffer size must be an integer multiple of the buffer_scale. If
+// that's not the case, an invalid_size error is sent.
 //
 // The x and y arguments specify the location of the new pending
 // buffer's upper left corner, relative to the current buffer's upper
 // left corner, in surface-local coordinates. In other words, the
 // x and y, combined with the new surface size define in which
-// directions the surface's size changes.
+// directions the surface's size changes. Setting anything other than 0
+// as x and y arguments is discouraged, and should instead be replaced
+// with using the separate wl_surface.offset request.
+//
+// When the bound wl_surface version is 5 or higher, passing any
+// non-zero x or y is a protocol violation, and will result in an
+// 'invalid_offset' error being raised. To achieve equivalent semantics,
+// use wl_surface.offset.
 //
 // Surface contents are double-buffered state, see wl_surface.commit.
 //
@@ -2145,9 +2192,12 @@ func (obj *Surface) Destroy() {
 // from the same backing storage or use wp_linux_buffer_release.
 //
 // Destroying the wl_buffer after wl_buffer.release does not change
-// the surface contents. However, if the client destroys the
-// wl_buffer before receiving the wl_buffer.release event, the surface
-// contents become undefined immediately.
+// the surface contents. Destroying the wl_buffer before wl_buffer.release
+// is allowed as long as the underlying buffer storage isn't re-used (this
+// can happen e.g. on client process termination). However, if the client
+// destroys the wl_buffer before receiving the wl_buffer.release event and
+// mutates the underlying buffer storage, the surface contents become
+// undefined immediately.
 //
 // If wl_surface.attach is sent with a NULL wl_buffer, the
 // following wl_surface.commit will remove the surface content.
@@ -2390,6 +2440,22 @@ func (obj *Surface) DamageBuffer(x int32, y int32, width int32, height int32) {
 	obj.Conn().SendRequest(obj, 9, x, y, width, height)
 }
 
+// The x and y arguments specify the location of the new pending
+// buffer's upper left corner, relative to the current buffer's upper
+// left corner, in surface-local coordinates. In other words, the
+// x and y, combined with the new surface size define in which
+// directions the surface's size changes.
+//
+// Surface location offset is double-buffered state, see
+// wl_surface.commit.
+//
+// This request is semantically equivalent to and the replaces the x and y
+// arguments in the wl_surface.attach request in wl_surface versions prior
+// to 5. See wl_surface.attach for details.
+func (obj *Surface) Offset(x int32, y int32) {
+	obj.Conn().SendRequest(obj, 10, x, y)
+}
+
 // This is a bitmask of capabilities this seat has; if a member is
 // set, then it is present on the seat.
 type SeatCapability uint32
@@ -2403,7 +2469,15 @@ const (
 	SeatCapabilityTouch SeatCapability = 4
 )
 
-var seatInterface = &wlproto.Interface{
+// These errors can be emitted in response to wl_seat requests.
+type SeatError uint32
+
+const (
+	// get_pointer, get_keyboard or get_touch called on seat without the matching capability
+	SeatErrorMissingCapability SeatError = 0
+)
+
+var SeatInterface = &wlproto.Interface{
 	Name:    "wl_seat",
 	Version: 7,
 	Requests: []wlproto.Request{
@@ -2462,7 +2536,7 @@ var seatInterface = &wlproto.Interface{
 // maintains a keyboard focus and a pointer focus.
 type Seat struct{ wlclient.Proxy }
 
-func (*Seat) Interface() *wlproto.Interface { return seatInterface }
+func (*Seat) Interface() *wlproto.Interface { return SeatInterface }
 
 func (obj *Seat) WithQueue(queue *wlclient.EventQueue) *Seat {
 	wobj := &Seat{}
@@ -2485,7 +2559,8 @@ func (obj *Seat) AddListener(listeners SeatEvents) {
 // This request only takes effect if the seat has the pointer
 // capability, or has had the pointer capability in the past.
 // It is a protocol violation to issue this request on a seat that has
-// never had the pointer capability.
+// never had the pointer capability. The missing_capability error will
+// be sent in this case.
 func (obj *Seat) GetPointer() *Pointer {
 	_ret := &Pointer{}
 	obj.Conn().NewProxy(0, _ret, obj.Queue())
@@ -2499,7 +2574,8 @@ func (obj *Seat) GetPointer() *Pointer {
 // This request only takes effect if the seat has the keyboard
 // capability, or has had the keyboard capability in the past.
 // It is a protocol violation to issue this request on a seat that has
-// never had the keyboard capability.
+// never had the keyboard capability. The missing_capability error will
+// be sent in this case.
 func (obj *Seat) GetKeyboard() *Keyboard {
 	_ret := &Keyboard{}
 	obj.Conn().NewProxy(0, _ret, obj.Queue())
@@ -2513,7 +2589,8 @@ func (obj *Seat) GetKeyboard() *Keyboard {
 // This request only takes effect if the seat has the touch
 // capability, or has had the touch capability in the past.
 // It is a protocol violation to issue this request on a seat that has
-// never had the touch capability.
+// never had the touch capability. The missing_capability error will
+// be sent in this case.
 func (obj *Seat) GetTouch() *Touch {
 	_ret := &Touch{}
 	obj.Conn().NewProxy(0, _ret, obj.Queue())
@@ -2586,7 +2663,7 @@ const (
 	PointerAxisSourceWheelTilt PointerAxisSource = 3
 )
 
-var pointerInterface = &wlproto.Interface{
+var PointerInterface = &wlproto.Interface{
 	Name:    "wl_pointer",
 	Version: 7,
 	Requests: []wlproto.Request{
@@ -2696,7 +2773,7 @@ var pointerInterface = &wlproto.Interface{
 // and scrolling.
 type Pointer struct{ wlclient.Proxy }
 
-func (*Pointer) Interface() *wlproto.Interface { return pointerInterface }
+func (*Pointer) Interface() *wlproto.Interface { return PointerInterface }
 
 func (obj *Pointer) WithQueue(queue *wlclient.EventQueue) *Pointer {
 	wobj := &Pointer{}
@@ -2751,6 +2828,10 @@ func (obj *Pointer) AddListener(listeners PointerEvents) {
 // wl_surface is no longer used as the cursor. When the use as a
 // cursor ends, the current and pending input regions become
 // undefined, and the wl_surface is unmapped.
+//
+// The serial parameter must match the latest wl_pointer.enter
+// serial number sent to the client. Otherwise the request will be
+// ignored.
 func (obj *Pointer) SetCursor(serial uint32, surface *Surface, hotspotX int32, hotspotY int32) {
 	obj.Conn().SendRequest(obj, 0, serial, surface, hotspotX, hotspotY)
 }
@@ -2787,7 +2868,7 @@ const (
 	KeyboardKeyStatePressed KeyboardKeyState = 1
 )
 
-var keyboardInterface = &wlproto.Interface{
+var KeyboardInterface = &wlproto.Interface{
 	Name:    "wl_keyboard",
 	Version: 7,
 	Requests: []wlproto.Request{
@@ -2861,7 +2942,7 @@ var keyboardInterface = &wlproto.Interface{
 // associated with a seat.
 type Keyboard struct{ wlclient.Proxy }
 
-func (*Keyboard) Interface() *wlproto.Interface { return keyboardInterface }
+func (*Keyboard) Interface() *wlproto.Interface { return KeyboardInterface }
 
 func (obj *Keyboard) WithQueue(queue *wlclient.EventQueue) *Keyboard {
 	wobj := &Keyboard{}
@@ -2889,7 +2970,7 @@ func (obj *Keyboard) Release() {
 
 func (obj *Keyboard) Destroy() { obj.Conn().Destroy(obj) }
 
-var touchInterface = &wlproto.Interface{
+var TouchInterface = &wlproto.Interface{
 	Name:    "wl_touch",
 	Version: 7,
 	Requests: []wlproto.Request{
@@ -2972,7 +3053,7 @@ var touchInterface = &wlproto.Interface{
 // contact point can be identified by the ID of the sequence.
 type Touch struct{ wlclient.Proxy }
 
-func (*Touch) Interface() *wlproto.Interface { return touchInterface }
+func (*Touch) Interface() *wlproto.Interface { return TouchInterface }
 
 func (obj *Touch) WithQueue(queue *wlclient.EventQueue) *Touch {
 	wobj := &Touch{}
@@ -3063,9 +3144,9 @@ const (
 	OutputModePreferred OutputMode = 0x2
 )
 
-var outputInterface = &wlproto.Interface{
+var OutputInterface = &wlproto.Interface{
 	Name:    "wl_output",
-	Version: 3,
+	Version: 4,
 	Requests: []wlproto.Request{
 		{
 			Name:  "release",
@@ -3111,6 +3192,20 @@ var outputInterface = &wlproto.Interface{
 				{Type: wlproto.ArgTypeInt},
 			},
 		},
+		{
+			Name:  "name",
+			Since: 4,
+			Args: []wlproto.Arg{
+				{Type: wlproto.ArgTypeString},
+			},
+		},
+		{
+			Name:  "description",
+			Since: 4,
+			Args: []wlproto.Arg{
+				{Type: wlproto.ArgTypeString},
+			},
+		},
 	},
 }
 
@@ -3122,7 +3217,7 @@ var outputInterface = &wlproto.Interface{
 // as global during start up, or when a monitor is hotplugged.
 type Output struct{ wlclient.Proxy }
 
-func (*Output) Interface() *wlproto.Interface { return outputInterface }
+func (*Output) Interface() *wlproto.Interface { return OutputInterface }
 
 func (obj *Output) WithQueue(queue *wlclient.EventQueue) *Output {
 	wobj := &Output{}
@@ -3131,14 +3226,16 @@ func (obj *Output) WithQueue(queue *wlclient.EventQueue) *Output {
 }
 
 type OutputEvents struct {
-	Geometry func(obj *Output, x int32, y int32, physicalWidth int32, physicalHeight int32, subpixel int32, make string, model string, transform int32)
-	Mode     func(obj *Output, flags OutputMode, width int32, height int32, refresh int32)
-	Done     func(obj *Output)
-	Scale    func(obj *Output, factor int32)
+	Geometry    func(obj *Output, x int32, y int32, physicalWidth int32, physicalHeight int32, subpixel int32, make string, model string, transform int32)
+	Mode        func(obj *Output, flags OutputMode, width int32, height int32, refresh int32)
+	Done        func(obj *Output)
+	Scale       func(obj *Output, factor int32)
+	Name        func(obj *Output, name string)
+	Description func(obj *Output, description string)
 }
 
 func (obj *Output) AddListener(listeners OutputEvents) {
-	obj.Proxy.SetListeners(listeners.Geometry, listeners.Mode, listeners.Done, listeners.Scale)
+	obj.Proxy.SetListeners(listeners.Geometry, listeners.Mode, listeners.Done, listeners.Scale, listeners.Name, listeners.Description)
 }
 
 // Using this request a client can tell the server that it is not going to
@@ -3149,7 +3246,7 @@ func (obj *Output) Release() {
 
 func (obj *Output) Destroy() { obj.Conn().Destroy(obj) }
 
-var regionInterface = &wlproto.Interface{
+var RegionInterface = &wlproto.Interface{
 	Name:    "wl_region",
 	Version: 1,
 	Requests: []wlproto.Request{
@@ -3191,7 +3288,7 @@ var regionInterface = &wlproto.Interface{
 // regions of a surface.
 type Region struct{ wlclient.Proxy }
 
-func (*Region) Interface() *wlproto.Interface { return regionInterface }
+func (*Region) Interface() *wlproto.Interface { return RegionInterface }
 
 func (obj *Region) WithQueue(queue *wlclient.EventQueue) *Region {
 	wobj := &Region{}
@@ -3228,7 +3325,7 @@ const (
 	SubcompositorErrorBadSurface SubcompositorError = 0
 )
 
-var subcompositorInterface = &wlproto.Interface{
+var SubcompositorInterface = &wlproto.Interface{
 	Name:    "wl_subcompositor",
 	Version: 1,
 	Requests: []wlproto.Request{
@@ -3273,7 +3370,7 @@ var subcompositorInterface = &wlproto.Interface{
 // processing to dedicated overlay hardware when possible.
 type Subcompositor struct{ wlclient.Proxy }
 
-func (*Subcompositor) Interface() *wlproto.Interface { return subcompositorInterface }
+func (*Subcompositor) Interface() *wlproto.Interface { return SubcompositorInterface }
 
 func (obj *Subcompositor) WithQueue(queue *wlclient.EventQueue) *Subcompositor {
 	wobj := &Subcompositor{}
@@ -3324,7 +3421,7 @@ const (
 	SubsurfaceErrorBadSurface SubsurfaceError = 0
 )
 
-var subsurfaceInterface = &wlproto.Interface{
+var SubsurfaceInterface = &wlproto.Interface{
 	Name:    "wl_subsurface",
 	Version: 1,
 	Requests: []wlproto.Request{
@@ -3396,7 +3493,7 @@ var subsurfaceInterface = &wlproto.Interface{
 // wl_surface state directly. A sub-surface is initially in the
 // synchronized mode.
 //
-// Sub-surfaces have also other kind of state, which is managed by
+// Sub-surfaces also have another kind of state, which is managed by
 // wl_subsurface requests, as opposed to wl_surface requests. This
 // state includes the sub-surface position relative to the parent
 // surface (wl_subsurface.set_position), and the stacking order of
@@ -3426,7 +3523,7 @@ var subsurfaceInterface = &wlproto.Interface{
 // unmapped.
 type Subsurface struct{ wlclient.Proxy }
 
-func (*Subsurface) Interface() *wlproto.Interface { return subsurfaceInterface }
+func (*Subsurface) Interface() *wlproto.Interface { return SubsurfaceInterface }
 
 func (obj *Subsurface) WithQueue(queue *wlclient.EventQueue) *Subsurface {
 	wobj := &Subsurface{}

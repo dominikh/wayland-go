@@ -22,60 +22,61 @@ var interfaceNames = map[string]string{
 }
 
 var Interfaces = map[string]*wlproto.Interface{
-	"xdg_wm_base":    wmBaseInterface,
-	"xdg_positioner": positionerInterface,
-	"xdg_surface":    surfaceInterface,
-	"xdg_toplevel":   toplevelInterface,
-	"xdg_popup":      popupInterface,
+	"xdg_wm_base":    WmBaseInterface,
+	"xdg_positioner": PositionerInterface,
+	"xdg_surface":    SurfaceInterface,
+	"xdg_toplevel":   ToplevelInterface,
+	"xdg_popup":      PopupInterface,
 }
 
 var Requests = map[string]*wlproto.Request{
-	"xdg_wm_base_destroy":                      &wmBaseInterface.Requests[0],
-	"xdg_wm_base_create_positioner":            &wmBaseInterface.Requests[1],
-	"xdg_wm_base_get_xdg_surface":              &wmBaseInterface.Requests[2],
-	"xdg_wm_base_pong":                         &wmBaseInterface.Requests[3],
-	"xdg_positioner_destroy":                   &positionerInterface.Requests[0],
-	"xdg_positioner_set_size":                  &positionerInterface.Requests[1],
-	"xdg_positioner_set_anchor_rect":           &positionerInterface.Requests[2],
-	"xdg_positioner_set_anchor":                &positionerInterface.Requests[3],
-	"xdg_positioner_set_gravity":               &positionerInterface.Requests[4],
-	"xdg_positioner_set_constraint_adjustment": &positionerInterface.Requests[5],
-	"xdg_positioner_set_offset":                &positionerInterface.Requests[6],
-	"xdg_positioner_set_reactive":              &positionerInterface.Requests[7],
-	"xdg_positioner_set_parent_size":           &positionerInterface.Requests[8],
-	"xdg_positioner_set_parent_configure":      &positionerInterface.Requests[9],
-	"xdg_surface_destroy":                      &surfaceInterface.Requests[0],
-	"xdg_surface_get_toplevel":                 &surfaceInterface.Requests[1],
-	"xdg_surface_get_popup":                    &surfaceInterface.Requests[2],
-	"xdg_surface_set_window_geometry":          &surfaceInterface.Requests[3],
-	"xdg_surface_ack_configure":                &surfaceInterface.Requests[4],
-	"xdg_toplevel_destroy":                     &toplevelInterface.Requests[0],
-	"xdg_toplevel_set_parent":                  &toplevelInterface.Requests[1],
-	"xdg_toplevel_set_title":                   &toplevelInterface.Requests[2],
-	"xdg_toplevel_set_app_id":                  &toplevelInterface.Requests[3],
-	"xdg_toplevel_show_window_menu":            &toplevelInterface.Requests[4],
-	"xdg_toplevel_move":                        &toplevelInterface.Requests[5],
-	"xdg_toplevel_resize":                      &toplevelInterface.Requests[6],
-	"xdg_toplevel_set_max_size":                &toplevelInterface.Requests[7],
-	"xdg_toplevel_set_min_size":                &toplevelInterface.Requests[8],
-	"xdg_toplevel_set_maximized":               &toplevelInterface.Requests[9],
-	"xdg_toplevel_unset_maximized":             &toplevelInterface.Requests[10],
-	"xdg_toplevel_set_fullscreen":              &toplevelInterface.Requests[11],
-	"xdg_toplevel_unset_fullscreen":            &toplevelInterface.Requests[12],
-	"xdg_toplevel_set_minimized":               &toplevelInterface.Requests[13],
-	"xdg_popup_destroy":                        &popupInterface.Requests[0],
-	"xdg_popup_grab":                           &popupInterface.Requests[1],
-	"xdg_popup_reposition":                     &popupInterface.Requests[2],
+	"xdg_wm_base_destroy":                      &WmBaseInterface.Requests[0],
+	"xdg_wm_base_create_positioner":            &WmBaseInterface.Requests[1],
+	"xdg_wm_base_get_xdg_surface":              &WmBaseInterface.Requests[2],
+	"xdg_wm_base_pong":                         &WmBaseInterface.Requests[3],
+	"xdg_positioner_destroy":                   &PositionerInterface.Requests[0],
+	"xdg_positioner_set_size":                  &PositionerInterface.Requests[1],
+	"xdg_positioner_set_anchor_rect":           &PositionerInterface.Requests[2],
+	"xdg_positioner_set_anchor":                &PositionerInterface.Requests[3],
+	"xdg_positioner_set_gravity":               &PositionerInterface.Requests[4],
+	"xdg_positioner_set_constraint_adjustment": &PositionerInterface.Requests[5],
+	"xdg_positioner_set_offset":                &PositionerInterface.Requests[6],
+	"xdg_positioner_set_reactive":              &PositionerInterface.Requests[7],
+	"xdg_positioner_set_parent_size":           &PositionerInterface.Requests[8],
+	"xdg_positioner_set_parent_configure":      &PositionerInterface.Requests[9],
+	"xdg_surface_destroy":                      &SurfaceInterface.Requests[0],
+	"xdg_surface_get_toplevel":                 &SurfaceInterface.Requests[1],
+	"xdg_surface_get_popup":                    &SurfaceInterface.Requests[2],
+	"xdg_surface_set_window_geometry":          &SurfaceInterface.Requests[3],
+	"xdg_surface_ack_configure":                &SurfaceInterface.Requests[4],
+	"xdg_toplevel_destroy":                     &ToplevelInterface.Requests[0],
+	"xdg_toplevel_set_parent":                  &ToplevelInterface.Requests[1],
+	"xdg_toplevel_set_title":                   &ToplevelInterface.Requests[2],
+	"xdg_toplevel_set_app_id":                  &ToplevelInterface.Requests[3],
+	"xdg_toplevel_show_window_menu":            &ToplevelInterface.Requests[4],
+	"xdg_toplevel_move":                        &ToplevelInterface.Requests[5],
+	"xdg_toplevel_resize":                      &ToplevelInterface.Requests[6],
+	"xdg_toplevel_set_max_size":                &ToplevelInterface.Requests[7],
+	"xdg_toplevel_set_min_size":                &ToplevelInterface.Requests[8],
+	"xdg_toplevel_set_maximized":               &ToplevelInterface.Requests[9],
+	"xdg_toplevel_unset_maximized":             &ToplevelInterface.Requests[10],
+	"xdg_toplevel_set_fullscreen":              &ToplevelInterface.Requests[11],
+	"xdg_toplevel_unset_fullscreen":            &ToplevelInterface.Requests[12],
+	"xdg_toplevel_set_minimized":               &ToplevelInterface.Requests[13],
+	"xdg_popup_destroy":                        &PopupInterface.Requests[0],
+	"xdg_popup_grab":                           &PopupInterface.Requests[1],
+	"xdg_popup_reposition":                     &PopupInterface.Requests[2],
 }
 
 var Events = map[string]*wlproto.Event{
-	"xdg_wm_base_ping":       &wmBaseInterface.Events[0],
-	"xdg_surface_configure":  &surfaceInterface.Events[0],
-	"xdg_toplevel_configure": &toplevelInterface.Events[0],
-	"xdg_toplevel_close":     &toplevelInterface.Events[1],
-	"xdg_popup_configure":    &popupInterface.Events[0],
-	"xdg_popup_popup_done":   &popupInterface.Events[1],
-	"xdg_popup_repositioned": &popupInterface.Events[2],
+	"xdg_wm_base_ping":              &WmBaseInterface.Events[0],
+	"xdg_surface_configure":         &SurfaceInterface.Events[0],
+	"xdg_toplevel_configure":        &ToplevelInterface.Events[0],
+	"xdg_toplevel_close":            &ToplevelInterface.Events[1],
+	"xdg_toplevel_configure_bounds": &ToplevelInterface.Events[2],
+	"xdg_popup_configure":           &PopupInterface.Events[0],
+	"xdg_popup_popup_done":          &PopupInterface.Events[1],
+	"xdg_popup_repositioned":        &PopupInterface.Events[2],
 }
 
 type WmBaseError uint32
@@ -95,9 +96,9 @@ const (
 	WmBaseErrorInvalidPositioner WmBaseError = 5
 )
 
-var wmBaseInterface = &wlproto.Interface{
+var WmBaseInterface = &wlproto.Interface{
 	Name:    "xdg_wm_base",
-	Version: 3,
+	Version: 4,
 	Type:    reflect.TypeOf(WmBase{}),
 	Requests: []wlproto.Request{
 		{
@@ -154,7 +155,7 @@ var wmBaseInterface = &wlproto.Interface{
 // creating transient windows such as popup menus.
 type WmBase struct{ wlserver.Resource }
 
-func (WmBase) Interface() *wlproto.Interface { return wmBaseInterface }
+func (WmBase) Interface() *wlproto.Interface { return WmBaseInterface }
 
 type WmBaseImplementation interface {
 	Destroy(obj WmBase)
@@ -284,9 +285,9 @@ const (
 	PositionerConstraintAdjustmentResizeY PositionerConstraintAdjustment = 32
 )
 
-var positionerInterface = &wlproto.Interface{
+var PositionerInterface = &wlproto.Interface{
 	Name:    "xdg_positioner",
-	Version: 3,
+	Version: 4,
 	Type:    reflect.TypeOf(Positioner{}),
 	Requests: []wlproto.Request{
 		{
@@ -406,7 +407,7 @@ var positionerInterface = &wlproto.Interface{
 // positioning a surface raises an error.
 type Positioner struct{ wlserver.Resource }
 
-func (Positioner) Interface() *wlproto.Interface { return positionerInterface }
+func (Positioner) Interface() *wlproto.Interface { return PositionerInterface }
 
 type PositionerImplementation interface {
 	Destroy(obj Positioner)
@@ -430,9 +431,9 @@ const (
 	SurfaceErrorUnconfiguredBuffer SurfaceError = 3
 )
 
-var surfaceInterface = &wlproto.Interface{
+var SurfaceInterface = &wlproto.Interface{
 	Name:    "xdg_surface",
-	Version: 3,
+	Version: 4,
 	Type:    reflect.TypeOf(Surface{}),
 	Requests: []wlproto.Request{
 		{
@@ -520,6 +521,11 @@ var surfaceInterface = &wlproto.Interface{
 // manipulate a buffer prior to the first xdg_surface.configure call must
 // also be treated as errors.
 //
+// After creating a role-specific object and setting it up, the client must
+// perform an initial commit without any buffer attached. The compositor
+// will reply with an xdg_surface.configure event. The client must
+// acknowledge it and is then allowed to attach a buffer to map the surface.
+//
 // Mapping an xdg_surface-based role surface is defined as making it
 // possible for the surface to be shown by the compositor. Note that
 // a mapped surface is not guaranteed to be visible once it is mapped.
@@ -533,10 +539,11 @@ var surfaceInterface = &wlproto.Interface{
 //
 // A newly-unmapped surface is considered to have met condition (1) out
 // of the 3 required conditions for mapping a surface if its role surface
-// has not been destroyed.
+// has not been destroyed, i.e. the client must perform the initial commit
+// again before attaching a buffer.
 type Surface struct{ wlserver.Resource }
 
-func (Surface) Interface() *wlproto.Interface { return surfaceInterface }
+func (Surface) Interface() *wlproto.Interface { return SurfaceInterface }
 
 type SurfaceImplementation interface {
 	Destroy(obj Surface)
@@ -566,6 +573,13 @@ type SurfaceImplementation interface {
 func (obj Surface) Configure(serial uint32) {
 	obj.Conn().SendEvent(obj, 0, serial)
 }
+
+type ToplevelError uint32
+
+const (
+	// provided value is not a valid variant of the resize_edge enum
+	ToplevelErrorInvalidResizeEdge ToplevelError = 0
+)
 
 // These values are used to indicate which edge of a surface
 // is being dragged in a resize operation.
@@ -628,9 +642,9 @@ const (
 	ToplevelStateTiledBottom ToplevelState = 8
 )
 
-var toplevelInterface = &wlproto.Interface{
+var ToplevelInterface = &wlproto.Interface{
 	Name:    "xdg_toplevel",
-	Version: 3,
+	Version: 4,
 	Type:    reflect.TypeOf(Toplevel{}),
 	Requests: []wlproto.Request{
 		{
@@ -773,6 +787,14 @@ var toplevelInterface = &wlproto.Interface{
 			Since: 1,
 			Args:  []wlproto.Arg{},
 		},
+		{
+			Name:  "configure_bounds",
+			Since: 4,
+			Args: []wlproto.Arg{
+				{Type: wlproto.ArgTypeInt},
+				{Type: wlproto.ArgTypeInt},
+			},
+		},
 	},
 }
 
@@ -786,12 +808,16 @@ var toplevelInterface = &wlproto.Interface{
 // by the compositor until it is explicitly mapped again.
 // All active operations (e.g., move, resize) are canceled and all
 // attributes (e.g. title, state, stacking, ...) are discarded for
-// an xdg_toplevel surface when it is unmapped.
+// an xdg_toplevel surface when it is unmapped. The xdg_toplevel returns to
+// the state it had right after xdg_surface.get_toplevel. The client
+// can re-map the toplevel by perfoming a commit without any buffer
+// attached, waiting for a configure event and handling it as usual (see
+// xdg_surface description).
 //
 // Attaching a null buffer to a toplevel unmaps the surface.
 type Toplevel struct{ wlserver.Resource }
 
-func (Toplevel) Interface() *wlproto.Interface { return toplevelInterface }
+func (Toplevel) Interface() *wlproto.Interface { return ToplevelInterface }
 
 type ToplevelImplementation interface {
 	Destroy(obj Toplevel)
@@ -846,6 +872,25 @@ func (obj Toplevel) Close() {
 	obj.Conn().SendEvent(obj, 1)
 }
 
+// The configure_bounds event may be sent prior to a xdg_toplevel.configure
+// event to communicate the bounds a window geometry size is recommended
+// to constrain to.
+//
+// The passed width and height are in surface coordinate space. If width
+// and height are 0, it means bounds is unknown and equivalent to as if no
+// configure_bounds event was ever sent for this surface.
+//
+// The bounds can for example correspond to the size of a monitor excluding
+// any panels or other shell components, so that a surface isn't created in
+// a way that it cannot fit.
+//
+// The bounds may change at any point, and in such a case, a new
+// xdg_toplevel.configure_bounds will be sent, followed by
+// xdg_toplevel.configure and xdg_surface.configure.
+func (obj Toplevel) ConfigureBounds(width int32, height int32) {
+	obj.Conn().SendEvent(obj, 2, width, height)
+}
+
 type PopupError uint32
 
 const (
@@ -853,9 +898,9 @@ const (
 	PopupErrorInvalidGrab PopupError = 0
 )
 
-var popupInterface = &wlproto.Interface{
+var PopupInterface = &wlproto.Interface{
 	Name:    "xdg_popup",
-	Version: 3,
+	Version: 4,
 	Type:    reflect.TypeOf(Popup{}),
 	Requests: []wlproto.Request{
 		{
@@ -938,7 +983,7 @@ var popupInterface = &wlproto.Interface{
 // for the xdg_popup state to take effect.
 type Popup struct{ wlserver.Resource }
 
-func (Popup) Interface() *wlproto.Interface { return popupInterface }
+func (Popup) Interface() *wlproto.Interface { return PopupInterface }
 
 type PopupImplementation interface {
 	Destroy(obj Popup)
