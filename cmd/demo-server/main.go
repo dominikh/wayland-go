@@ -1,12 +1,3 @@
-/*
-$ , weston-info
-interface: 'wl_seat', version: 5, name: 1
-	name: a nice seat
-	capabilities: keyboard
-	keyboard repeat rate: 1234
-	keyboard repeat delay: 5678
-*/
-
 package main
 
 import (
@@ -35,6 +26,10 @@ type Seat struct {
 
 	resources map[wlserver.Object]struct{}
 }
+
+// Seat is both the global and its implementation
+var _ wlserver.Global = (*Seat)(nil)
+var _ wayland.SeatImplementation = (*Seat)(nil)
 
 func (s *Seat) OnBind(res wlserver.Object) wlserver.ResourceImplementation {
 	s.resources[res] = struct{}{}
@@ -78,7 +73,7 @@ func main() {
 		resources: map[wlserver.Object]struct{}{},
 		keyboard:  &Keyboard{4444, 8888},
 	}
-	dsp.AddGlobal(seat, wayland.Seat{}.Interface(), 5)
+	dsp.AddGlobal(seat, wayland.SeatInterface, 5)
 
 	dsp.Run()
 }
