@@ -257,7 +257,24 @@ func enumEntryDocString(entry elEntry) string {
 	if entry.Summary == "" {
 		return ""
 	}
-	return "// " + entry.Summary
+	return "// " + fixNewlineInSummaryAttribute(entry.Summary)
+}
+
+func fixNewlineInSummaryAttribute(s string) string {
+	// The xdg-shell protocol contains this:
+	//
+	// <entry name="invalid_resize_edge" value="0" summary="provided value is
+	//   not a valid variant of the resize_edge enum"/>
+	//
+	// Remove the newline and indentation.
+	if !strings.Contains(s, "\n") {
+		return s
+	}
+	lines := strings.Split(s, "\n")
+	for i := range lines {
+		lines[i] = strings.TrimLeft(lines[i], " ")
+	}
+	return strings.Join(lines, " ")
 }
 
 func (b *Builder) qualifyTypeName(name string) string {
