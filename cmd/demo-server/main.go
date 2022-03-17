@@ -13,7 +13,6 @@ import (
 	"log"
 	"net"
 
-	"honnef.co/go/wayland/wlproto"
 	"honnef.co/go/wayland/wlserver"
 	"honnef.co/go/wayland/wlserver/protocols/wayland"
 )
@@ -36,8 +35,6 @@ type Seat struct {
 
 	resources map[wlserver.Object]struct{}
 }
-
-func (*Seat) Interface() (*wlproto.Interface, int) { return wayland.Seat{}.Interface(), 5 }
 
 func (s *Seat) OnBind(res wlserver.Object) wlserver.ResourceImplementation {
 	s.resources[res] = struct{}{}
@@ -81,7 +78,7 @@ func main() {
 		resources: map[wlserver.Object]struct{}{},
 		keyboard:  &Keyboard{4444, 8888},
 	}
-	dsp.AddGlobal(seat)
+	dsp.AddGlobal(seat, wayland.Seat{}.Interface(), 5)
 
 	dsp.Run()
 }

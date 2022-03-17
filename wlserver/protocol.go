@@ -36,22 +36,27 @@ type Display struct {
 	globalsMu sync.RWMutex
 	clients   []*Client
 	globalsID uint32
-	globals   map[uint32]Global
+	globals   map[uint32]registeredGlobal
 }
 
 func NewDisplay(l *net.UnixListener) *Display {
 	return &Display{
 		l:       l,
-		globals: map[uint32]Global{},
+		globals: map[uint32]registeredGlobal{},
 	}
 }
 
+type registeredGlobal struct {
+	g       Global
+	iface   *wlproto.Interface
+	version int
+}
+
 type Global interface {
-	Interface() (iface *wlproto.Interface, version int)
 	OnBind(res Object) ResourceImplementation
 }
 
-func (dsp *Display) AddGlobal(g Global) {
+func (dsp *Display) AddGlobal(g Global, iface *wlproto.Interface, version int) {
 	dsp.globalsMu.Lock()
 	defer dsp.globalsMu.Unlock()
 
@@ -60,8 +65,7 @@ func (dsp *Display) AddGlobal(g Global) {
 	if dsp.globalsID == math.MaxUint32 {
 		panic("global counter overflow")
 	}
-	dsp.globals[name] = g
-	iface, version := g.Interface()
+	dsp.globals[name] = registeredGlobal{g, iface, version}
 	for _, c := range dsp.clients {
 		for reg := range c.registries {
 			c.sendEvent(reg, 0, uint32(name), iface.Name, uint32(version))
@@ -222,8 +226,7 @@ func (c *Client) readLoop() error {
 				c.dsp.globalsMu.RLock()
 				c.registries[wlshared.ObjectID(id)] = struct{}{}
 				for name, g := range c.dsp.globals {
-					iface, version := g.Interface()
-					c.sendEvent(wlshared.ObjectID(id), 0, uint32(name), iface.Name, uint32(version))
+					c.sendEvent(wlshared.ObjectID(id), 0, uint32(name), g.iface.Name, uint32(g.version))
 				}
 				c.dsp.globalsMu.RUnlock()
 			default:
@@ -245,7 +248,7 @@ func (c *Client) readLoop() error {
 				// XXX guard against in-use id
 				// XXX verify that ifaceName matches the global's interface
 
-				iface, _ := c.dsp.globals[name].Interface()
+				iface := c.dsp.globals[name].iface
 				res := Resource{
 					conn: c,
 					id:   wlshared.ObjectID(id),
@@ -254,7 +257,7 @@ func (c *Client) readLoop() error {
 				robj.Field(0).Set(reflect.ValueOf(res))
 				obj := robj.Interface().(Object)
 				c.objects[id] = obj
-				c.implementations[id] = c.dsp.globals[name].OnBind(obj)
+				c.implementations[id] = c.dsp.globals[name].g.OnBind(obj)
 			} else {
 				// XXX invalid opcode
 			}
