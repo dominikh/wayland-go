@@ -22,22 +22,11 @@ func (*Keyboard) Release(wayland.Keyboard)  {}
 func (*Keyboard) OnDestroy(wlserver.Object) {}
 
 type Seat struct {
-	keyboard *Keyboard
-
-	resources map[wlserver.Object]struct{}
+	server   *Server
+	resource wayland.Seat
 }
 
 var _ wayland.SeatImplementation = (*Seat)(nil)
-
-func (s *Seat) OnBind(res wlserver.Object) wlserver.ResourceImplementation {
-	s.resources[res] = struct{}{}
-
-	sres := res.(wayland.Seat)
-	sres.Capabilities(wayland.SeatCapabilityKeyboard)
-	sres.Name("a nice seat")
-
-	return s
-}
 
 func (s *Seat) GetPointer(obj wayland.Seat, id wayland.Pointer) wayland.PointerImplementation {
 	panic("not implemented")
@@ -47,16 +36,29 @@ func (s *Seat) GetTouch(obj wayland.Seat, id wayland.Touch) wayland.TouchImpleme
 }
 
 func (s *Seat) GetKeyboard(obj wayland.Seat, id wayland.Keyboard) wayland.KeyboardImplementation {
-	s.keyboard.Init(id)
-	return s.keyboard
+	s.server.keyboard.Init(id)
+	return s.server.keyboard
 }
 
 func (s *Seat) Release(obj wayland.Seat) {
 	// XXX let the server know we're done with the resource
 }
 
-func (s *Seat) OnDestroy(obj wlserver.Object) {
-	delete(s.resources, obj)
+func (s *Seat) OnDestroy(obj wlserver.Object) {}
+
+type Server struct {
+	keyboard *Keyboard
+}
+
+func (s *Server) bindSeat(res wlserver.Object) wlserver.ResourceImplementation {
+	sres := res.(wayland.Seat)
+	sres.Capabilities(wayland.SeatCapabilityKeyboard)
+	sres.Name("a nice seat")
+
+	return &Seat{
+		server:   s,
+		resource: sres,
+	}
 }
 
 func main() {
@@ -67,11 +69,22 @@ func main() {
 
 	dsp := wlserver.NewDisplay(l.(*net.UnixListener))
 
-	seat := &Seat{
-		resources: map[wlserver.Object]struct{}{},
-		keyboard:  &Keyboard{4444, 8888},
+	srv := &Server{
+		keyboard: &Keyboard{4444, 8888},
 	}
-	dsp.AddGlobal(wayland.SeatInterface, 5, seat.OnBind)
 
-	dsp.Run()
+	dsp.AddGlobal(wayland.SeatInterface, 5, srv.bindSeat)
+
+	go dsp.Run()
+	for {
+		select {
+		case conn := <-dsp.NewConns():
+			dsp.AddClient(conn)
+		case msg := <-dsp.Messages():
+			dsp.ProcessMessage(msg)
+		case disco := <-dsp.Disconnects():
+			log.Printf("client %d disconnected: %s", disco.Client.ID(), disco.Err)
+			dsp.RemoveClient(disco.Client)
+		}
+	}
 }

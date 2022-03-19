@@ -2,21 +2,17 @@ package wlserver
 
 import (
 	"encoding/binary"
-	"errors"
-	"io"
-	"log"
 	"math"
 	"net"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"unsafe"
 
 	"honnef.co/go/wayland/wlproto"
 	"honnef.co/go/wayland/wlshared"
 )
-
-// XXX handle removing globals, consider the race with bind
 
 var byteOrder binary.ByteOrder
 
@@ -33,17 +29,41 @@ type Display struct {
 	l        *net.UnixListener
 	clientID uint64
 
-	globalsMu sync.RWMutex
-	clients   []*Client
+	clients   map[*Client]struct{}
 	globalsID uint32
 	globals   map[uint32]global
+
+	newConns    chan net.Conn
+	messages    chan Message
+	disconnects chan Disconnect
+}
+
+type Disconnect struct {
+	Client *Client
+	Err    error
 }
 
 func NewDisplay(l *net.UnixListener) *Display {
 	return &Display{
-		l:       l,
-		globals: map[uint32]global{},
+		l:           l,
+		clients:     make(map[*Client]struct{}),
+		globals:     map[uint32]global{},
+		newConns:    make(chan net.Conn),
+		messages:    make(chan Message),
+		disconnects: make(chan Disconnect),
 	}
+}
+
+func (dsp *Display) NewConns() <-chan net.Conn {
+	return dsp.newConns
+}
+
+func (dsp *Display) Messages() <-chan Message {
+	return dsp.messages
+}
+
+func (dsp *Display) Disconnects() <-chan Disconnect {
+	return dsp.disconnects
 }
 
 type global struct {
@@ -53,9 +73,6 @@ type global struct {
 }
 
 func (dsp *Display) AddGlobal(iface *wlproto.Interface, version int, bind func(Object) ResourceImplementation) {
-	dsp.globalsMu.Lock()
-	defer dsp.globalsMu.Unlock()
-
 	dsp.globalsID++
 	name := dsp.globalsID
 	if dsp.globalsID == math.MaxUint32 {
@@ -63,214 +80,118 @@ func (dsp *Display) AddGlobal(iface *wlproto.Interface, version int, bind func(O
 	}
 	dsp.globals[name] = global{iface, version, bind}
 
-	// XXX AddGlobal can race with Run on accessing dsp.clients
-	for _, c := range dsp.clients {
+	for c := range dsp.clients {
 		for reg := range c.registries {
 			c.sendEvent(reg, 0, uint32(name), iface.Name, uint32(version))
 		}
 	}
 }
 
-func (dsp *Display) Run() {
-	for {
-		conn, err := dsp.l.Accept()
-		if err != nil {
-			// XXX
-			panic(err)
-		}
-
-		client := &Client{
-			dsp:             dsp,
-			id:              dsp.clientID,
-			rw:              conn.(*net.UnixConn),
-			objects:         map[wlshared.ObjectID]Object{},
-			implementations: map[wlshared.ObjectID]ResourceImplementation{},
-			registries:      map[wlshared.ObjectID]struct{}{},
-		}
-		dsp.clientID++
-		dsp.clients = append(dsp.clients, client)
-		go func() {
-			err := client.readLoop()
-			client.rw.Close()
-
-			// XXX destroy all the globals and objects
-
-			idx := -1
-			// XXX this read of dsp.clients races with the accept loop adding to dsp.clients
-			for i, oc := range dsp.clients {
-				if client == oc {
-					idx = i
-					break
-				}
-			}
-			dsp.globalsMu.Lock()
-			copy(dsp.clients[idx:], dsp.clients[idx+1:])
-			dsp.clients = dsp.clients[:len(dsp.clients)-1]
-			dsp.globalsMu.Unlock()
-
-			if err != nil {
-				client.sendMu.Lock()
-				if client.err == nil {
-					client.err = err
-				}
-				client.sendMu.Unlock()
-			}
-			if errors.Is(err, io.EOF) {
-				log.Printf("client %d disconnected", client.id)
-			} else {
-				log.Printf("fatal client error for client %d: %s", client.id, err)
-			}
-		}()
-	}
+type Message struct {
+	Client *Client
+	Sender wlshared.ObjectID
+	Opcode uint32
+	Data   []byte
 }
 
-type Client struct {
-	dsp     *Display
-	id      uint64
-	rw      *net.UnixConn
-	objects map[wlshared.ObjectID]Object
-
-	implementations map[wlshared.ObjectID]ResourceImplementation
-
-	// we track instances of wl_registry separately of other
-	// resources, because we can't import the generated wayland
-	// package and cannot use the generic dispatch code
-	registries map[wlshared.ObjectID]struct{}
-
-	data []byte
-	fds  []uintptr
-
-	sendMu  sync.RWMutex
-	sendBuf []byte
-	err     error
+func (dsp *Display) AddClient(conn net.Conn) *Client {
+	client := &Client{
+		dsp:             dsp,
+		id:              dsp.clientID,
+		rw:              conn.(*net.UnixConn),
+		objects:         map[wlshared.ObjectID]Object{},
+		implementations: map[wlshared.ObjectID]ResourceImplementation{},
+		registries:      map[wlshared.ObjectID]struct{}{},
+	}
+	dsp.clientID++
+	dsp.clients[client] = struct{}{}
+	go func() {
+		err := client.readLoop(dsp.messages)
+		client.rw.Close()
+		if werr, ok := client.err.Load().(error); ok {
+			// favour the write error over the read error
+			err = werr
+		}
+		// XXX destroy all resources before officially disconnecting the client
+		dsp.disconnects <- Disconnect{client, err}
+	}()
+	return client
 }
 
-func (c *Client) read() error {
-	b := make([]byte, 1<<16)
-	// XXX can there be more than one SCM per message?
-	// XXX in general, be more robust in handling SCM
-	oob := make([]byte, 24)
-	n, oobn, _, _, err := c.rw.ReadMsgUnix(b, oob)
-	if err != nil {
-		return err
-	}
-	c.data = append(c.data, b[:n]...)
-	if oobn == 24 {
-		scm, err := syscall.ParseSocketControlMessage(oob[:oobn])
-		if err != nil {
-			return err
-		}
-		fds, err := syscall.ParseUnixRights(&scm[0])
-		if err != nil {
-			return err
-		}
-		c.fds = append(c.fds, uintptr(fds[0]))
-	}
-	return nil
+func (dsp *Display) RemoveClient(client *Client) {
+	// XXX properly disconnect the client if it isn't already disconnected
+	delete(dsp.clients, client)
 }
 
-func (c *Client) readAtLeast(n int) error {
-	for len(c.data) < n {
-		if err := c.read(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+func (dsp *Display) ProcessMessage(msg Message) {
+	c := msg.Client
+	d := msg.Data
+	opcode := msg.Opcode
+	sender := msg.Sender
+	// special-case requests to the display or the registry, to
+	// avoid a circular dependency between this package and the
+	// generated wayland package.
+	const (
+		idDisplay             = 1
+		reqDisplaySync        = 0
+		reqDisplayGetRegistry = 1
+		reqRegistryBind       = 0
+		evCallbackDone        = 0
+		evDisplayDeleteID     = 1
+	)
+	if sender == idDisplay {
+		// request to the display
+		switch opcode {
+		case reqDisplaySync:
+			id := byteOrder.Uint32(d)
+			c.sendEvent(wlshared.ObjectID(id), evCallbackDone, uint32(0))
+			c.sendEvent(idDisplay, evDisplayDeleteID, id)
+		case reqDisplayGetRegistry:
+			// XXX verify the ID isn't already in use
+			id := byteOrder.Uint32(d)
 
-func (c *Client) readLoop() error {
-	// We are the server, thus we are reading requests
-	for {
-		if err := c.readAtLeast(8); err != nil {
-			return err
-		}
-		sender := wlshared.ObjectID(byteOrder.Uint32(c.data[0:4]))
-		h := byteOrder.Uint32(c.data[4:8])
-		size := (h & 0xFFFF0000) >> 16
-		if size < 8 {
-			// XXX invalid size
-		}
-		size -= 8
-		opcode := h & 0x0000FFFF
-		c.data = c.data[8:]
-		if err := c.readAtLeast(int(size)); err != nil {
-			return err
-		}
-
-		d := c.data[:size]
-		c.data = c.data[size:]
-
-		// special-case requests to the display or the registry, to
-		// avoid a circular dependency between this package and the
-		// generated wayland package.
-		const (
-			idDisplay             = 1
-			reqDisplaySync        = 0
-			reqDisplayGetRegistry = 1
-			reqRegistryBind       = 0
-			evCallbackDone        = 0
-			evDisplayDeleteID     = 1
-		)
-		if sender == idDisplay {
-			// request to the display
-			switch opcode {
-			case reqDisplaySync:
-				id := byteOrder.Uint32(d)
-				c.sendEvent(wlshared.ObjectID(id), evCallbackDone, uint32(0))
-				c.sendEvent(idDisplay, evDisplayDeleteID, id)
-			case reqDisplayGetRegistry:
-				// XXX verify the ID isn't already in use
-				id := byteOrder.Uint32(d)
-
-				c.dsp.globalsMu.RLock()
-				c.registries[wlshared.ObjectID(id)] = struct{}{}
-				for name, g := range c.dsp.globals {
-					c.sendEvent(wlshared.ObjectID(id), 0, uint32(name), g.iface.Name, uint32(g.version))
-				}
-				c.dsp.globalsMu.RUnlock()
-			default:
-				// XXX invalid opcode
+			c.registries[wlshared.ObjectID(id)] = struct{}{}
+			for name, g := range c.dsp.globals {
+				c.sendEvent(wlshared.ObjectID(id), 0, uint32(name), g.iface.Name, uint32(g.version))
 			}
-			continue
-		} else if _, ok := c.registries[sender]; ok {
-			// request to a registry
-			if opcode == reqRegistryBind {
-				// bind(name uint32, id new_id)
-
-				name := byteOrder.Uint32(d)
-				ifaceLen := byteOrder.Uint32(d[4:])
-				ifaceName := string(d[8 : 8+ifaceLen])
-				id := wlshared.ObjectID(byteOrder.Uint32(d[8+ifaceLen:]))
-				_ = ifaceName
-
-				// XXX guard against invalid name
-				// XXX guard against in-use id
-				// XXX verify that ifaceName matches the global's interface
-
-				iface := c.dsp.globals[name].iface
-				res := Resource{
-					conn: c,
-					id:   wlshared.ObjectID(id),
-				}
-				robj := reflect.New(iface.Type).Elem()
-				robj.Field(0).Set(reflect.ValueOf(res))
-				obj := robj.Interface().(Object)
-				c.objects[id] = obj
-				c.implementations[id] = c.dsp.globals[name].bind(obj)
-				// TODO(dh): we should verify that bind returned the correct implementation, e.g. a global with
-				// wayland.SeatInterface returns an implementation that implements wayland.SeatImplementation
-			} else {
-				// XXX invalid opcode
-			}
-			continue
+		default:
+			// XXX invalid opcode
 		}
+	} else if _, ok := c.registries[sender]; ok {
+		// request to a registry
+		if opcode == reqRegistryBind {
+			name := byteOrder.Uint32(d)
+			ifaceLen := byteOrder.Uint32(d[4:])
+			ifaceName := string(d[8 : 8+ifaceLen])
+			id := wlshared.ObjectID(byteOrder.Uint32(d[8+ifaceLen:]))
+			_ = ifaceName
 
+			// XXX guard against invalid name
+			// XXX guard against in-use id
+			// XXX verify that ifaceName matches the global's interface
+
+			iface := c.dsp.globals[name].iface
+			res := Resource{
+				conn: c,
+				id:   wlshared.ObjectID(id),
+			}
+			robj := reflect.New(iface.Type).Elem()
+			robj.Field(0).Set(reflect.ValueOf(res))
+			obj := robj.Interface().(Object)
+			c.objects[id] = obj
+			c.implementations[id] = c.dsp.globals[name].bind(obj)
+			// TODO(dh): we should verify that bind returned the correct implementation, e.g. a global with
+			// wayland.SeatInterface returns an implementation that implements wayland.SeatImplementation
+		} else {
+			// XXX invalid opcode
+		}
+	} else {
 		obj, ok := c.objects[sender]
 		if !ok {
 			// TODO(dh): is it okay for objects to be unknown when we're the server, or should we kill the client?
 
 			// unknown object
-			continue
+			return
 		}
 		off := 0
 		// XXX guard against invalid opcodes
@@ -321,12 +242,105 @@ func (c *Client) readLoop() error {
 				n++
 			}
 		}
+	}
+}
 
-		c.sendMu.RLock()
-		err := c.err
-		c.sendMu.RUnlock()
+func (dsp *Display) Run() {
+	for {
+		conn, err := dsp.l.Accept()
+		if err != nil {
+			// XXX
+			panic(err)
+			return
+		}
+		dsp.newConns <- conn
+	}
+}
+
+type Client struct {
+	dsp     *Display
+	id      uint64
+	rw      *net.UnixConn
+	objects map[wlshared.ObjectID]Object
+
+	err atomic.Value
+
+	implementations map[wlshared.ObjectID]ResourceImplementation
+
+	// we track instances of wl_registry separately of other
+	// resources, because we can't import the generated wayland
+	// package and cannot use the generic dispatch code
+	registries map[wlshared.ObjectID]struct{}
+
+	data []byte
+	fds  []uintptr
+
+	sendMu  sync.RWMutex
+	sendBuf []byte
+}
+
+func (c *Client) ID() uint64 { return c.id }
+
+func (c *Client) read() error {
+	b := make([]byte, 1<<16)
+	// XXX can there be more than one SCM per message?
+	// XXX in general, be more robust in handling SCM
+	oob := make([]byte, 24)
+	n, oobn, _, _, err := c.rw.ReadMsgUnix(b, oob)
+	if err != nil {
+		return err
+	}
+	c.data = append(c.data, b[:n]...)
+	if oobn == 24 {
+		scm, err := syscall.ParseSocketControlMessage(oob[:oobn])
 		if err != nil {
 			return err
+		}
+		fds, err := syscall.ParseUnixRights(&scm[0])
+		if err != nil {
+			return err
+		}
+		c.fds = append(c.fds, uintptr(fds[0]))
+	}
+	return nil
+}
+
+func (c *Client) readAtLeast(n int) error {
+	for len(c.data) < n {
+		if err := c.read(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Client) readLoop(msgs chan<- Message) error {
+	// We are the server, thus we are reading requests
+	for {
+		if err := c.readAtLeast(8); err != nil {
+			return err
+		}
+		sender := wlshared.ObjectID(byteOrder.Uint32(c.data[0:4]))
+		h := byteOrder.Uint32(c.data[4:8])
+		size := (h & 0xFFFF0000) >> 16
+		if size < 8 {
+			// XXX invalid size
+		}
+		size -= 8
+		opcode := h & 0x0000FFFF
+		c.data = c.data[8:]
+		if err := c.readAtLeast(int(size)); err != nil {
+			return err
+		}
+
+		d := c.data[:size]
+		c.data = c.data[size:]
+
+		msgs <- Message{
+			Client: c,
+			Sender: sender,
+			Opcode: opcode,
+			Data:   d,
 		}
 	}
 }
@@ -363,14 +377,15 @@ func (c *Client) sendEvent(source wlshared.ObjectID, event int, args ...interfac
 	c.sendMu.Lock()
 	defer c.sendMu.Unlock()
 
-	if c.err != nil {
-		return
-	}
-
 	buf := c.sendBuf[:0]
 	var oob []byte
 	buf, oob = wlshared.EncodeRequest(buf, source, event, args)
-	_, _, c.err = c.rw.WriteMsgUnix(buf, oob, nil)
+	_, _, err := c.rw.WriteMsgUnix(buf, oob, nil)
+	if err != nil {
+		// Set c.err if it hasn't been set yet
+		c.err.CompareAndSwap(nil, err)
+		c.rw.Close()
+	}
 
 	c.sendBuf = buf[:0]
 }

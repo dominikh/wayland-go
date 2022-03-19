@@ -6,8 +6,9 @@ pkgs.mkShell {
     libinput
     pkg-config
     wayland
-    wayland.debug
+    wayland.debug # debug symbols
     wayland-protocols
     wayland-utils
+    hello-wayland # simple test client
   ];
 }
