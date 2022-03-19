@@ -2,6 +2,7 @@ package wlserver
 
 import (
 	"encoding/binary"
+	"io"
 	"math"
 	"net"
 	"reflect"
@@ -272,8 +273,7 @@ type Client struct {
 	// package and cannot use the generic dispatch code
 	registries map[wlshared.ObjectID]struct{}
 
-	data []byte
-	fds  []uintptr
+	fds []uintptr
 
 	sendMu  sync.RWMutex
 	sendBuf []byte
@@ -281,66 +281,68 @@ type Client struct {
 
 func (c *Client) ID() uint64 { return c.id }
 
-func (c *Client) read() error {
-	b := make([]byte, 1<<16)
+func (c *Client) read(b []byte) (int, error) {
 	// XXX can there be more than one SCM per message?
 	// XXX in general, be more robust in handling SCM
 	oob := make([]byte, 24)
 	n, oobn, _, _, err := c.rw.ReadMsgUnix(b, oob)
 	if err != nil {
-		return err
+		return n, err
 	}
-	c.data = append(c.data, b[:n]...)
 	if oobn == 24 {
 		scm, err := syscall.ParseSocketControlMessage(oob[:oobn])
 		if err != nil {
-			return err
+			return n, err
 		}
 		fds, err := syscall.ParseUnixRights(&scm[0])
 		if err != nil {
-			return err
+			return n, err
 		}
 		c.fds = append(c.fds, uintptr(fds[0]))
 	}
-	return nil
+	return n, nil
 }
 
-func (c *Client) readAtLeast(n int) error {
-	for len(c.data) < n {
-		if err := c.read(); err != nil {
-			return err
-		}
+func (c *Client) readFull(buf []byte) (n int, err error) {
+	for n < len(buf) && err == nil {
+		var nn int
+		nn, err = c.read(buf[n:])
+		n += nn
 	}
-	return nil
+	if n == len(buf) {
+		err = nil
+	} else if n > 0 && err == io.EOF {
+		err = io.ErrUnexpectedEOF
+	}
+	return
 }
 
 func (c *Client) readLoop(msgs chan<- Message) error {
 	// We are the server, thus we are reading requests
+	hdr := make([]byte, 8)
 	for {
-		if err := c.readAtLeast(8); err != nil {
+		if _, err := c.readFull(hdr); err != nil {
 			return err
 		}
-		sender := wlshared.ObjectID(byteOrder.Uint32(c.data[0:4]))
-		h := byteOrder.Uint32(c.data[4:8])
+		sender := wlshared.ObjectID(byteOrder.Uint32(hdr[0:4]))
+		h := byteOrder.Uint32(hdr[4:8])
 		size := (h & 0xFFFF0000) >> 16
 		if size < 8 {
 			// XXX invalid size
 		}
 		size -= 8
 		opcode := h & 0x0000FFFF
-		c.data = c.data[8:]
-		if err := c.readAtLeast(int(size)); err != nil {
+
+		buf := make([]byte, int(size))
+		if _, err := c.readFull(buf); err != nil {
 			return err
 		}
-
-		d := c.data[:size]
-		c.data = c.data[size:]
 
 		msgs <- Message{
 			Client: c,
 			Sender: sender,
 			Opcode: opcode,
-			Data:   d,
+			Data:   buf,
 		}
 	}
 }
