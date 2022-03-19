@@ -456,6 +456,11 @@ func (b *Builder) printSpecs(out io.Writer) {
 				}
 				fmt.Fprintln(b, "OnDestroy(wlserver.Object)")
 				fmt.Fprint(b, "}\n\n")
+
+				fmt.Fprintf(b, "func Add%sGlobal(dsp *wlserver.Display, version int, bind func(res %s) %s) {\n",
+					b.typeName(iface.Name), b.typeName(iface.Name), b.eventsTypeName(iface))
+				fmt.Fprintf(b, "dsp.AddGlobal(%s, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(%s))})\n", b.wlprotoInterfaceName(iface), b.typeName(iface.Name))
+				fmt.Fprint(b, "}\n\n")
 			} else {
 				fmt.Fprintf(b, "type %s struct {\n", b.eventsTypeName(iface))
 				for _, ev := range iface.Events {

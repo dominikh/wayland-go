@@ -26,8 +26,6 @@ type Seat struct {
 	resource wayland.Seat
 }
 
-var _ wayland.SeatImplementation = (*Seat)(nil)
-
 func (s *Seat) GetPointer(obj wayland.Seat, id wayland.Pointer) wayland.PointerImplementation {
 	panic("not implemented")
 }
@@ -50,8 +48,7 @@ type Server struct {
 	keyboard *Keyboard
 }
 
-func (s *Server) bindSeat(res wlserver.Object) wlserver.ResourceImplementation {
-	sres := res.(wayland.Seat)
+func (s *Server) bindSeat(sres wayland.Seat) wayland.SeatImplementation {
 	sres.Capabilities(wayland.SeatCapabilityKeyboard)
 	sres.Name("a nice seat")
 
@@ -59,6 +56,10 @@ func (s *Server) bindSeat(res wlserver.Object) wlserver.ResourceImplementation {
 		server:   s,
 		resource: sres,
 	}
+}
+
+func (s *Server) bindOutput(res wayland.Output) wayland.OutputImplementation {
+	return nil
 }
 
 func main() {
@@ -73,7 +74,8 @@ func main() {
 		keyboard: &Keyboard{4444, 8888},
 	}
 
-	dsp.AddGlobal(wayland.SeatInterface, 5, srv.bindSeat)
+	wayland.AddSeatGlobal(dsp, 5, srv.bindSeat)
+	wayland.AddOutputGlobal(dsp, 4, srv.bindOutput)
 
 	go dsp.Run()
 	for {

@@ -165,6 +165,10 @@ type WmBaseImplementation interface {
 	OnDestroy(wlserver.Object)
 }
 
+func AddWmBaseGlobal(dsp *wlserver.Display, version int, bind func(res WmBase) WmBaseImplementation) {
+	dsp.AddGlobal(WmBaseInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(WmBase)) })
+}
+
 // The ping event asks the client if it's still alive. Pass the
 // serial specified in the event back to the compositor by sending
 // a "pong" request back with the specified serial. See xdg_wm_base.pong.
@@ -423,6 +427,10 @@ type PositionerImplementation interface {
 	OnDestroy(wlserver.Object)
 }
 
+func AddPositionerGlobal(dsp *wlserver.Display, version int, bind func(res Positioner) PositionerImplementation) {
+	dsp.AddGlobal(PositionerInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Positioner)) })
+}
+
 type SurfaceError uint32
 
 const (
@@ -552,6 +560,10 @@ type SurfaceImplementation interface {
 	SetWindowGeometry(obj Surface, x int32, y int32, width int32, height int32)
 	AckConfigure(obj Surface, serial uint32)
 	OnDestroy(wlserver.Object)
+}
+
+func AddSurfaceGlobal(dsp *wlserver.Display, version int, bind func(res Surface) SurfaceImplementation) {
+	dsp.AddGlobal(SurfaceInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Surface)) })
 }
 
 // The configure event marks the end of a configure sequence. A configure
@@ -837,6 +849,10 @@ type ToplevelImplementation interface {
 	OnDestroy(wlserver.Object)
 }
 
+func AddToplevelGlobal(dsp *wlserver.Display, version int, bind func(res Toplevel) ToplevelImplementation) {
+	dsp.AddGlobal(ToplevelInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Toplevel)) })
+}
+
 // This configure event asks the client to resize its toplevel surface or
 // to change its state. The configured state should not be applied
 // immediately. See xdg_surface.configure for details.
@@ -990,6 +1006,10 @@ type PopupImplementation interface {
 	Grab(obj Popup, seat wayland.Seat, serial uint32)
 	Reposition(obj Popup, positioner Positioner, token uint32)
 	OnDestroy(wlserver.Object)
+}
+
+func AddPopupGlobal(dsp *wlserver.Display, version int, bind func(res Popup) PopupImplementation) {
+	dsp.AddGlobal(PopupInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Popup)) })
 }
 
 // This event asks the popup surface to configure itself given the

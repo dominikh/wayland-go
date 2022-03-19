@@ -261,6 +261,10 @@ type DisplayImplementation interface {
 	OnDestroy(wlserver.Object)
 }
 
+func AddDisplayGlobal(dsp *wlserver.Display, version int, bind func(res Display) DisplayImplementation) {
+	dsp.AddGlobal(DisplayInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Display)) })
+}
+
 // The error event is sent out when a fatal (non-recoverable)
 // error has occurred.  The object_id argument is the object
 // where the error occurred, most often in response to a request
@@ -346,6 +350,10 @@ type RegistryImplementation interface {
 	OnDestroy(wlserver.Object)
 }
 
+func AddRegistryGlobal(dsp *wlserver.Display, version int, bind func(res Registry) RegistryImplementation) {
+	dsp.AddGlobal(RegistryInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Registry)) })
+}
+
 // Notify the client of global objects.
 //
 // The event notifies the client that a global object with
@@ -395,6 +403,10 @@ type CallbackImplementation interface {
 	OnDestroy(wlserver.Object)
 }
 
+func AddCallbackGlobal(dsp *wlserver.Display, version int, bind func(res Callback) CallbackImplementation) {
+	dsp.AddGlobal(CallbackInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Callback)) })
+}
+
 // Notify the client when the related request is done.
 func (obj Callback) Done(callbackData uint32) {
 	obj.Conn().SendEvent(obj, 0, callbackData)
@@ -438,6 +450,10 @@ type CompositorImplementation interface {
 	CreateSurface(obj Compositor, id Surface) SurfaceImplementation
 	CreateRegion(obj Compositor, id Region) RegionImplementation
 	OnDestroy(wlserver.Object)
+}
+
+func AddCompositorGlobal(dsp *wlserver.Display, version int, bind func(res Compositor) CompositorImplementation) {
+	dsp.AddGlobal(CompositorInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Compositor)) })
 }
 
 var ShmPoolInterface = &wlproto.Interface{
@@ -495,6 +511,10 @@ type ShmPoolImplementation interface {
 	Destroy(obj ShmPool)
 	Resize(obj ShmPool, size int32)
 	OnDestroy(wlserver.Object)
+}
+
+func AddShmPoolGlobal(dsp *wlserver.Display, version int, bind func(res ShmPool) ShmPoolImplementation) {
+	dsp.AddGlobal(ShmPoolInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(ShmPool)) })
 }
 
 // These errors can be emitted in response to wl_shm requests.
@@ -776,6 +796,10 @@ type ShmImplementation interface {
 	OnDestroy(wlserver.Object)
 }
 
+func AddShmGlobal(dsp *wlserver.Display, version int, bind func(res Shm) ShmImplementation) {
+	dsp.AddGlobal(ShmInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Shm)) })
+}
+
 // Informs the client about a valid pixel format that
 // can be used for buffers. Known formats include
 // argb8888 and xrgb8888.
@@ -822,6 +846,10 @@ func (Buffer) Interface() *wlproto.Interface { return BufferInterface }
 type BufferImplementation interface {
 	Destroy(obj Buffer)
 	OnDestroy(wlserver.Object)
+}
+
+func AddBufferGlobal(dsp *wlserver.Display, version int, bind func(res Buffer) BufferImplementation) {
+	dsp.AddGlobal(BufferInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Buffer)) })
 }
 
 // Sent when this wl_buffer is no longer used by the compositor.
@@ -945,6 +973,10 @@ type DataOfferImplementation interface {
 	Finish(obj DataOffer)
 	SetActions(obj DataOffer, dndActions DataDeviceManagerDndAction, preferredAction DataDeviceManagerDndAction)
 	OnDestroy(wlserver.Object)
+}
+
+func AddDataOfferGlobal(dsp *wlserver.Display, version int, bind func(res DataOffer) DataOfferImplementation) {
+	dsp.AddGlobal(DataOfferInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(DataOffer)) })
 }
 
 // Sent immediately after creating the wl_data_offer object.  One
@@ -1093,6 +1125,10 @@ type DataSourceImplementation interface {
 	Destroy(obj DataSource)
 	SetActions(obj DataSource, dndActions DataDeviceManagerDndAction)
 	OnDestroy(wlserver.Object)
+}
+
+func AddDataSourceGlobal(dsp *wlserver.Display, version int, bind func(res DataSource) DataSourceImplementation) {
+	dsp.AddGlobal(DataSourceInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(DataSource)) })
 }
 
 // Sent when a target accepts pointer_focus or motion events.  If
@@ -1292,6 +1328,10 @@ type DataDeviceImplementation interface {
 	OnDestroy(wlserver.Object)
 }
 
+func AddDataDeviceGlobal(dsp *wlserver.Display, version int, bind func(res DataDevice) DataDeviceImplementation) {
+	dsp.AddGlobal(DataDeviceInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(DataDevice)) })
+}
+
 // The data_offer event introduces a new wl_data_offer object,
 // which will subsequently be used in either the
 // data_device.enter event (for drag-and-drop) or the
@@ -1443,6 +1483,10 @@ type DataDeviceManagerImplementation interface {
 	OnDestroy(wlserver.Object)
 }
 
+func AddDataDeviceManagerGlobal(dsp *wlserver.Display, version int, bind func(res DataDeviceManager) DataDeviceManagerImplementation) {
+	dsp.AddGlobal(DataDeviceManagerInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(DataDeviceManager)) })
+}
+
 type ShellError uint32
 
 const (
@@ -1484,6 +1528,10 @@ func (Shell) Interface() *wlproto.Interface { return ShellInterface }
 type ShellImplementation interface {
 	GetShellSurface(obj Shell, id ShellSurface, surface Surface) ShellSurfaceImplementation
 	OnDestroy(wlserver.Object)
+}
+
+func AddShellGlobal(dsp *wlserver.Display, version int, bind func(res Shell) ShellImplementation) {
+	dsp.AddGlobal(ShellInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Shell)) })
 }
 
 // These values are used to indicate which edge of a surface
@@ -1697,6 +1745,10 @@ type ShellSurfaceImplementation interface {
 	SetTitle(obj ShellSurface, title string)
 	SetClass(obj ShellSurface, class string)
 	OnDestroy(wlserver.Object)
+}
+
+func AddShellSurfaceGlobal(dsp *wlserver.Display, version int, bind func(res ShellSurface) ShellSurfaceImplementation) {
+	dsp.AddGlobal(ShellSurfaceInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(ShellSurface)) })
 }
 
 // Ping a client to check if it is receiving events and sending
@@ -1935,6 +1987,10 @@ type SurfaceImplementation interface {
 	OnDestroy(wlserver.Object)
 }
 
+func AddSurfaceGlobal(dsp *wlserver.Display, version int, bind func(res Surface) SurfaceImplementation) {
+	dsp.AddGlobal(SurfaceInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Surface)) })
+}
+
 // This is emitted whenever a surface's creation, movement, or resizing
 // results in some part of it being within the scanout region of an
 // output.
@@ -2050,6 +2106,10 @@ type SeatImplementation interface {
 	GetTouch(obj Seat, id Touch) TouchImplementation
 	Release(obj Seat)
 	OnDestroy(wlserver.Object)
+}
+
+func AddSeatGlobal(dsp *wlserver.Display, version int, bind func(res Seat) SeatImplementation) {
+	dsp.AddGlobal(SeatInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Seat)) })
 }
 
 // This is emitted whenever a seat gains or loses the pointer,
@@ -2276,6 +2336,10 @@ type PointerImplementation interface {
 	SetCursor(obj Pointer, serial uint32, surface Surface, hotspotX int32, hotspotY int32)
 	Release(obj Pointer)
 	OnDestroy(wlserver.Object)
+}
+
+func AddPointerGlobal(dsp *wlserver.Display, version int, bind func(res Pointer) PointerImplementation) {
+	dsp.AddGlobal(PointerInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Pointer)) })
 }
 
 // Notification that this seat's pointer is focused on a certain
@@ -2561,6 +2625,10 @@ type KeyboardImplementation interface {
 	OnDestroy(wlserver.Object)
 }
 
+func AddKeyboardGlobal(dsp *wlserver.Display, version int, bind func(res Keyboard) KeyboardImplementation) {
+	dsp.AddGlobal(KeyboardInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Keyboard)) })
+}
+
 // This event provides a file descriptor to the client which can be
 // memory-mapped in read-only mode to provide a keyboard mapping
 // description.
@@ -2717,6 +2785,10 @@ func (Touch) Interface() *wlproto.Interface { return TouchInterface }
 type TouchImplementation interface {
 	Release(obj Touch)
 	OnDestroy(wlserver.Object)
+}
+
+func AddTouchGlobal(dsp *wlserver.Display, version int, bind func(res Touch) TouchImplementation) {
+	dsp.AddGlobal(TouchInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Touch)) })
 }
 
 // A new touch point has appeared on the surface. This touch point is
@@ -2961,6 +3033,10 @@ type OutputImplementation interface {
 	OnDestroy(wlserver.Object)
 }
 
+func AddOutputGlobal(dsp *wlserver.Display, version int, bind func(res Output) OutputImplementation) {
+	dsp.AddGlobal(OutputInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Output)) })
+}
+
 // The geometry event describes geometric properties of the output.
 // The event is sent when binding to the output object and whenever
 // any of the properties change.
@@ -3156,6 +3232,10 @@ type RegionImplementation interface {
 	OnDestroy(wlserver.Object)
 }
 
+func AddRegionGlobal(dsp *wlserver.Display, version int, bind func(res Region) RegionImplementation) {
+	dsp.AddGlobal(RegionInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Region)) })
+}
+
 type SubcompositorError uint32
 
 const (
@@ -3217,6 +3297,10 @@ type SubcompositorImplementation interface {
 	Destroy(obj Subcompositor)
 	GetSubsurface(obj Subcompositor, id Subsurface, surface Surface, parent Surface) SubsurfaceImplementation
 	OnDestroy(wlserver.Object)
+}
+
+func AddSubcompositorGlobal(dsp *wlserver.Display, version int, bind func(res Subcompositor) SubcompositorImplementation) {
+	dsp.AddGlobal(SubcompositorInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Subcompositor)) })
 }
 
 type SubsurfaceError uint32
@@ -3345,4 +3429,8 @@ type SubsurfaceImplementation interface {
 	SetSync(obj Subsurface)
 	SetDesync(obj Subsurface)
 	OnDestroy(wlserver.Object)
+}
+
+func AddSubsurfaceGlobal(dsp *wlserver.Display, version int, bind func(res Subsurface) SubsurfaceImplementation) {
+	dsp.AddGlobal(SubsurfaceInterface, version, func(res wlserver.Object) wlserver.ResourceImplementation { return bind(res.(Subsurface)) })
 }
