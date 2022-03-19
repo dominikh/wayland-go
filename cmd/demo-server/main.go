@@ -27,8 +27,6 @@ type Seat struct {
 	resources map[wlserver.Object]struct{}
 }
 
-// Seat is both the global and its implementation
-var _ wlserver.Global = (*Seat)(nil)
 var _ wayland.SeatImplementation = (*Seat)(nil)
 
 func (s *Seat) OnBind(res wlserver.Object) wlserver.ResourceImplementation {
@@ -73,7 +71,7 @@ func main() {
 		resources: map[wlserver.Object]struct{}{},
 		keyboard:  &Keyboard{4444, 8888},
 	}
-	dsp.AddGlobal(seat, wayland.SeatInterface, 5)
+	dsp.AddGlobal(wayland.SeatInterface, 5, seat.OnBind)
 
 	dsp.Run()
 }

@@ -36,27 +36,23 @@ type Display struct {
 	globalsMu sync.RWMutex
 	clients   []*Client
 	globalsID uint32
-	globals   map[uint32]registeredGlobal
+	globals   map[uint32]global
 }
 
 func NewDisplay(l *net.UnixListener) *Display {
 	return &Display{
 		l:       l,
-		globals: map[uint32]registeredGlobal{},
+		globals: map[uint32]global{},
 	}
 }
 
-type registeredGlobal struct {
-	g       Global
+type global struct {
 	iface   *wlproto.Interface
 	version int
+	bind    func(Object) ResourceImplementation
 }
 
-type Global interface {
-	OnBind(res Object) ResourceImplementation
-}
-
-func (dsp *Display) AddGlobal(g Global, iface *wlproto.Interface, version int) {
+func (dsp *Display) AddGlobal(iface *wlproto.Interface, version int, bind func(Object) ResourceImplementation) {
 	dsp.globalsMu.Lock()
 	defer dsp.globalsMu.Unlock()
 
@@ -65,7 +61,9 @@ func (dsp *Display) AddGlobal(g Global, iface *wlproto.Interface, version int) {
 	if dsp.globalsID == math.MaxUint32 {
 		panic("global counter overflow")
 	}
-	dsp.globals[name] = registeredGlobal{g, iface, version}
+	dsp.globals[name] = global{iface, version, bind}
+
+	// XXX AddGlobal can race with Run on accessing dsp.clients
 	for _, c := range dsp.clients {
 		for reg := range c.registries {
 			c.sendEvent(reg, 0, uint32(name), iface.Name, uint32(version))
@@ -98,6 +96,7 @@ func (dsp *Display) Run() {
 			// XXX destroy all the globals and objects
 
 			idx := -1
+			// XXX this read of dsp.clients races with the accept loop adding to dsp.clients
 			for i, oc := range dsp.clients {
 				if client == oc {
 					idx = i
@@ -257,7 +256,9 @@ func (c *Client) readLoop() error {
 				robj.Field(0).Set(reflect.ValueOf(res))
 				obj := robj.Interface().(Object)
 				c.objects[id] = obj
-				c.implementations[id] = c.dsp.globals[name].g.OnBind(obj)
+				c.implementations[id] = c.dsp.globals[name].bind(obj)
+				// TODO(dh): we should verify that bind returned the correct implementation, e.g. a global with
+				// wayland.SeatInterface returns an implementation that implements wayland.SeatImplementation
 			} else {
 				// XXX invalid opcode
 			}
