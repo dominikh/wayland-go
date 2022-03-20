@@ -124,9 +124,27 @@ func (dsp *Display) RemoveClient(client *Client) {
 	delete(dsp.clients, client)
 }
 
+type buf []byte
+
+func (b *buf) uint32() uint32 {
+	n := byteOrder.Uint32(*b)
+	*b = (*b)[4:]
+	return n
+}
+
+func (b *buf) string() string {
+	n := byteOrder.Uint32(*b)
+	// -1 to skip terminating null byte
+	data := (*b)[4 : 4+n-1]
+	// strings are padded to 32-bit boundary
+	n = (n + 3) &^ 0x03
+	*b = (*b)[4+n:]
+	return string(data)
+}
+
 func (dsp *Display) ProcessMessage(msg Message) {
 	c := msg.Client
-	d := msg.Data
+	d := buf(msg.Data)
 	opcode := msg.Opcode
 	sender := msg.Sender
 	// special-case requests to the display or the registry, to
@@ -144,12 +162,12 @@ func (dsp *Display) ProcessMessage(msg Message) {
 		// request to the display
 		switch opcode {
 		case reqDisplaySync:
-			id := byteOrder.Uint32(d)
+			id := d.uint32()
 			c.sendEvent(wlshared.ObjectID(id), evCallbackDone, uint32(0))
 			c.sendEvent(idDisplay, evDisplayDeleteID, id)
 		case reqDisplayGetRegistry:
 			// XXX verify the ID isn't already in use
-			id := byteOrder.Uint32(d)
+			id := d.uint32()
 
 			c.registries[wlshared.ObjectID(id)] = struct{}{}
 			for name, g := range c.dsp.globals {
@@ -161,10 +179,10 @@ func (dsp *Display) ProcessMessage(msg Message) {
 	} else if _, ok := c.registries[sender]; ok {
 		// request to a registry
 		if opcode == reqRegistryBind {
-			name := byteOrder.Uint32(d)
-			ifaceLen := byteOrder.Uint32(d[4:])
-			ifaceName := string(d[8 : 8+ifaceLen])
-			id := wlshared.ObjectID(byteOrder.Uint32(d[8+ifaceLen:]))
+			name := d.uint32()
+			ifaceName := d.string()
+			version := d.uint32()
+			id := wlshared.ObjectID(d.uint32())
 			_ = ifaceName
 
 			// XXX guard against invalid name
@@ -173,8 +191,9 @@ func (dsp *Display) ProcessMessage(msg Message) {
 
 			iface := c.dsp.globals[name].iface
 			res := Resource{
-				conn: c,
-				id:   wlshared.ObjectID(id),
+				conn:    c,
+				id:      wlshared.ObjectID(id),
+				version: version,
 			}
 			robj := reflect.New(iface.Type).Elem()
 			robj.Field(0).Set(reflect.ValueOf(res))
@@ -348,8 +367,9 @@ func (c *Client) readLoop(msgs chan<- Message) error {
 }
 
 type Resource struct {
-	id   wlshared.ObjectID
-	conn *Client
+	id      wlshared.ObjectID
+	conn    *Client
+	version uint32
 }
 
 type ResourceImplementation interface {
@@ -363,6 +383,7 @@ func (p Resource) SetImplementation(impl ResourceImplementation) {
 func (p Resource) GetResource() Resource { return p }
 func (p Resource) Conn() *Client         { return p.conn }
 func (p Resource) ID() wlshared.ObjectID { return p.id }
+func (p Resource) Version() uint32       { return p.version }
 
 type Object interface {
 	ID() wlshared.ObjectID
