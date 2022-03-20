@@ -139,6 +139,11 @@ func (b *Builder) wlprotoInterfaceName(iface elInterface) string {
 }
 
 func (b *Builder) wlprotoArg(arg elArg, ctx elInterface) string {
+	if arg.Type == "new_id" && arg.Interface == "" {
+		// new_id without an interface expands to stringified name, version, id
+		return "{Type: wlproto.ArgTypeString}, {Type: wlproto.ArgTypeUint}, {Type: wlproto.ArgTypeNewID}"
+	}
+
 	var typ string
 	switch arg.Type {
 	case "int":

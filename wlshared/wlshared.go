@@ -120,7 +120,6 @@ func ParseArgument(arg wlproto.Arg, d []byte, off int) (newOff int, v interface{
 	case wlproto.ArgTypeFd:
 		out = nil
 	case wlproto.ArgTypeNewID:
-		// XXX a new_id might be just an integer, or also a string name and a version…
 		out = ObjectID(num)
 	default:
 		panic("unreachable")

@@ -242,6 +242,10 @@ func (dsp *Display) ProcessMessage(msg Message) {
 					conn: c,
 					id:   wlshared.ObjectID(num),
 				}
+				// XXX handle new_id with no specified interface, and thus no Aux
+				if arg.Aux == nil {
+					panic("not implemented")
+				}
 				rv := reflect.New(arg.Aux).Elem()
 				rv.Field(0).Set(reflect.ValueOf(res))
 				v := rv.Interface().(Object)

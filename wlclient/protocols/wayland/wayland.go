@@ -313,7 +313,7 @@ var RegistryInterface = &wlproto.Interface{
 			Since: 1,
 			Args: []wlproto.Arg{
 				{Type: wlproto.ArgTypeUint},
-				{Type: wlproto.ArgTypeNewID},
+				{Type: wlproto.ArgTypeString}, {Type: wlproto.ArgTypeUint}, {Type: wlproto.ArgTypeNewID},
 			},
 		},
 	},
