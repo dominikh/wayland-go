@@ -15,6 +15,9 @@ import (
 	"honnef.co/go/wayland/wlshared"
 )
 
+// TODO implement removal of globals, take the race documented in
+// https://gitlab.freedesktop.org/wayland/wayland/-/issues/10 into consideration
+
 var byteOrder binary.ByteOrder
 
 func init() {
@@ -73,10 +76,11 @@ type global struct {
 	bind    func(Object) ResourceImplementation
 }
 
-func (dsp *Display) AddGlobal(iface *wlproto.Interface, version int, bind func(Object) ResourceImplementation) {
+func (dsp *Display) AddGlobal(iface *wlproto.Interface, version int, bind func(Object) ResourceImplementation) uint32 {
 	dsp.globalsID++
 	name := dsp.globalsID
 	if dsp.globalsID == math.MaxUint32 {
+		// XXX reclaim names used by deleted globals
 		panic("global counter overflow")
 	}
 	dsp.globals[name] = global{iface, version, bind}
@@ -84,6 +88,18 @@ func (dsp *Display) AddGlobal(iface *wlproto.Interface, version int, bind func(O
 	for c := range dsp.clients {
 		for reg := range c.registries {
 			c.sendEvent(reg, 0, uint32(name), iface.Name, uint32(version))
+		}
+	}
+
+	return name
+}
+
+func (dsp *Display) RemoveGlobal(name uint32) {
+	delete(dsp.globals, name)
+
+	for c := range dsp.clients {
+		for reg := range c.registries {
+			c.sendEvent(reg, 1, uint32(name))
 		}
 	}
 }
@@ -185,11 +201,20 @@ func (dsp *Display) ProcessMessage(msg Message) {
 			id := wlshared.ObjectID(d.uint32())
 			_ = ifaceName
 
-			// XXX guard against invalid name
+			g, ok := c.dsp.globals[name]
+			if !ok {
+				if name > c.dsp.globalsID {
+					// XXX the client tried to bind to a global that has never existed and we should kill the client
+				} else {
+					// XXX the global has been removed and the client's bind raced with the removal. we should set up a
+					// tombstone that later gets destroyed by the client.
+				}
+			}
+
 			// XXX guard against in-use id
 			// XXX verify that ifaceName matches the global's interface
 
-			iface := c.dsp.globals[name].iface
+			iface := g.iface
 			res := Resource{
 				conn:    c,
 				id:      wlshared.ObjectID(id),
