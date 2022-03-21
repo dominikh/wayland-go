@@ -71,6 +71,24 @@ func (dsp *Display) Disconnects() <-chan Disconnect {
 	return dsp.disconnects
 }
 
+type ProtocolError struct {
+	Object  Object
+	Code    uint32
+	Message string
+}
+
+func (err *ProtocolError) Error() string {
+	return fmt.Sprintf("protocol error with code %d for object %s: %s", err.Code, objectString(err.Object), err.Message)
+}
+
+func (dsp *Display) Error(obj Object, code uint32, message string) {
+	// wl_display::error
+	obj.Conn().sendEvent(1, 0, obj, code, message)
+	err := error(&ProtocolError{obj, code, message})
+	obj.Conn().err.CompareAndSwap(nil, &err)
+	obj.Conn().rw.Close()
+}
+
 type global struct {
 	iface   *wlproto.Interface
 	version int
@@ -126,9 +144,9 @@ func (dsp *Display) AddClient(conn net.Conn) *Client {
 	go func() {
 		err := client.readLoop(dsp.messages)
 		client.rw.Close()
-		if werr, ok := client.err.Load().(error); ok {
-			// favour the write error over the read error
-			err = werr
+		if werr, ok := client.err.Load().(*error); ok {
+			// favour the write or protocol error over the read error
+			err = *werr
 		}
 		// XXX destroy all resources before officially disconnecting the client
 		dsp.disconnects <- Disconnect{client, err}
@@ -161,6 +179,13 @@ func (b *buf) string() string {
 
 func (dsp *Display) ProcessMessage(msg Message) {
 	c := msg.Client
+
+	// XXX make sure there aren't other places that also need this check
+	if _, ok := msg.Client.err.Load().(*error); ok {
+		// don't process message if the client has already failed
+		return
+	}
+
 	d := buf(msg.Data)
 	opcode := msg.Opcode
 	sender := msg.Sender
@@ -447,7 +472,7 @@ func (c *Client) sendEvent(source wlshared.ObjectID, event int, args ...interfac
 	_, _, err := c.rw.WriteMsgUnix(buf, oob, nil)
 	if err != nil {
 		// Set c.err if it hasn't been set yet
-		c.err.CompareAndSwap(nil, err)
+		c.err.CompareAndSwap(nil, &err)
 		c.rw.Close()
 	}
 
