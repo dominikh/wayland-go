@@ -246,6 +246,7 @@ func (dsp *Display) ProcessMessage(msg Message) {
 				if arg.Aux == nil {
 					panic("not implemented")
 				}
+				// XXX set the resource's version. it will be tied to the version of the resource to which the request is being sent
 				rv := reflect.New(arg.Aux).Elem()
 				rv.Field(0).Set(reflect.ValueOf(res))
 				v := rv.Interface().(Object)
