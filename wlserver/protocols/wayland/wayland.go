@@ -258,7 +258,6 @@ func (Display) Interface() *wlproto.Interface { return DisplayInterface }
 type DisplayImplementation interface {
 	Sync(obj Display, callback Callback) CallbackImplementation
 	GetRegistry(obj Display, registry Registry) RegistryImplementation
-	OnDestroy(wlserver.Object)
 }
 
 func AddDisplayGlobal(dsp *wlserver.Display, version int, bind func(res Display) DisplayImplementation) {
@@ -347,7 +346,6 @@ func (Registry) Interface() *wlproto.Interface { return RegistryInterface }
 
 type RegistryImplementation interface {
 	Bind(obj Registry, name uint32, id wlserver.Object) wlserver.ResourceImplementation
-	OnDestroy(wlserver.Object)
 }
 
 func AddRegistryGlobal(dsp *wlserver.Display, version int, bind func(res Registry) RegistryImplementation) {
@@ -400,7 +398,6 @@ type Callback struct{ wlserver.Resource }
 func (Callback) Interface() *wlproto.Interface { return CallbackInterface }
 
 type CallbackImplementation interface {
-	OnDestroy(wlserver.Object)
 }
 
 func AddCallbackGlobal(dsp *wlserver.Display, version int, bind func(res Callback) CallbackImplementation) {
@@ -449,7 +446,6 @@ func (Compositor) Interface() *wlproto.Interface { return CompositorInterface }
 type CompositorImplementation interface {
 	CreateSurface(obj Compositor, id Surface) SurfaceImplementation
 	CreateRegion(obj Compositor, id Region) RegionImplementation
-	OnDestroy(wlserver.Object)
 }
 
 func AddCompositorGlobal(dsp *wlserver.Display, version int, bind func(res Compositor) CompositorImplementation) {
@@ -510,7 +506,6 @@ type ShmPoolImplementation interface {
 	CreateBuffer(obj ShmPool, id Buffer, offset int32, width int32, height int32, stride int32, format ShmFormat) BufferImplementation
 	Destroy(obj ShmPool)
 	Resize(obj ShmPool, size int32)
-	OnDestroy(wlserver.Object)
 }
 
 func AddShmPoolGlobal(dsp *wlserver.Display, version int, bind func(res ShmPool) ShmPoolImplementation) {
@@ -793,7 +788,6 @@ func (Shm) Interface() *wlproto.Interface { return ShmInterface }
 
 type ShmImplementation interface {
 	CreatePool(obj Shm, id ShmPool, fd uintptr, size int32) ShmPoolImplementation
-	OnDestroy(wlserver.Object)
 }
 
 func AddShmGlobal(dsp *wlserver.Display, version int, bind func(res Shm) ShmImplementation) {
@@ -845,7 +839,6 @@ func (Buffer) Interface() *wlproto.Interface { return BufferInterface }
 
 type BufferImplementation interface {
 	Destroy(obj Buffer)
-	OnDestroy(wlserver.Object)
 }
 
 func AddBufferGlobal(dsp *wlserver.Display, version int, bind func(res Buffer) BufferImplementation) {
@@ -972,7 +965,6 @@ type DataOfferImplementation interface {
 	Destroy(obj DataOffer)
 	Finish(obj DataOffer)
 	SetActions(obj DataOffer, dndActions DataDeviceManagerDndAction, preferredAction DataDeviceManagerDndAction)
-	OnDestroy(wlserver.Object)
 }
 
 func AddDataOfferGlobal(dsp *wlserver.Display, version int, bind func(res DataOffer) DataOfferImplementation) {
@@ -1124,7 +1116,6 @@ type DataSourceImplementation interface {
 	Offer(obj DataSource, mimeType string)
 	Destroy(obj DataSource)
 	SetActions(obj DataSource, dndActions DataDeviceManagerDndAction)
-	OnDestroy(wlserver.Object)
 }
 
 func AddDataSourceGlobal(dsp *wlserver.Display, version int, bind func(res DataSource) DataSourceImplementation) {
@@ -1325,7 +1316,6 @@ type DataDeviceImplementation interface {
 	StartDrag(obj DataDevice, source DataSource, origin Surface, icon Surface, serial uint32)
 	SetSelection(obj DataDevice, source DataSource, serial uint32)
 	Release(obj DataDevice)
-	OnDestroy(wlserver.Object)
 }
 
 func AddDataDeviceGlobal(dsp *wlserver.Display, version int, bind func(res DataDevice) DataDeviceImplementation) {
@@ -1480,7 +1470,6 @@ func (DataDeviceManager) Interface() *wlproto.Interface { return DataDeviceManag
 type DataDeviceManagerImplementation interface {
 	CreateDataSource(obj DataDeviceManager, id DataSource) DataSourceImplementation
 	GetDataDevice(obj DataDeviceManager, id DataDevice, seat Seat) DataDeviceImplementation
-	OnDestroy(wlserver.Object)
 }
 
 func AddDataDeviceManagerGlobal(dsp *wlserver.Display, version int, bind func(res DataDeviceManager) DataDeviceManagerImplementation) {
@@ -1527,7 +1516,6 @@ func (Shell) Interface() *wlproto.Interface { return ShellInterface }
 
 type ShellImplementation interface {
 	GetShellSurface(obj Shell, id ShellSurface, surface Surface) ShellSurfaceImplementation
-	OnDestroy(wlserver.Object)
 }
 
 func AddShellGlobal(dsp *wlserver.Display, version int, bind func(res Shell) ShellImplementation) {
@@ -1744,7 +1732,6 @@ type ShellSurfaceImplementation interface {
 	SetMaximized(obj ShellSurface, output Output)
 	SetTitle(obj ShellSurface, title string)
 	SetClass(obj ShellSurface, class string)
-	OnDestroy(wlserver.Object)
 }
 
 func AddShellSurfaceGlobal(dsp *wlserver.Display, version int, bind func(res ShellSurface) ShellSurfaceImplementation) {
@@ -1984,7 +1971,6 @@ type SurfaceImplementation interface {
 	SetBufferScale(obj Surface, scale int32)
 	DamageBuffer(obj Surface, x int32, y int32, width int32, height int32)
 	Offset(obj Surface, x int32, y int32)
-	OnDestroy(wlserver.Object)
 }
 
 func AddSurfaceGlobal(dsp *wlserver.Display, version int, bind func(res Surface) SurfaceImplementation) {
@@ -2105,7 +2091,6 @@ type SeatImplementation interface {
 	GetKeyboard(obj Seat, id Keyboard) KeyboardImplementation
 	GetTouch(obj Seat, id Touch) TouchImplementation
 	Release(obj Seat)
-	OnDestroy(wlserver.Object)
 }
 
 func AddSeatGlobal(dsp *wlserver.Display, version int, bind func(res Seat) SeatImplementation) {
@@ -2335,7 +2320,6 @@ func (Pointer) Interface() *wlproto.Interface { return PointerInterface }
 type PointerImplementation interface {
 	SetCursor(obj Pointer, serial uint32, surface Surface, hotspotX int32, hotspotY int32)
 	Release(obj Pointer)
-	OnDestroy(wlserver.Object)
 }
 
 func AddPointerGlobal(dsp *wlserver.Display, version int, bind func(res Pointer) PointerImplementation) {
@@ -2622,7 +2606,6 @@ func (Keyboard) Interface() *wlproto.Interface { return KeyboardInterface }
 
 type KeyboardImplementation interface {
 	Release(obj Keyboard)
-	OnDestroy(wlserver.Object)
 }
 
 func AddKeyboardGlobal(dsp *wlserver.Display, version int, bind func(res Keyboard) KeyboardImplementation) {
@@ -2784,7 +2767,6 @@ func (Touch) Interface() *wlproto.Interface { return TouchInterface }
 
 type TouchImplementation interface {
 	Release(obj Touch)
-	OnDestroy(wlserver.Object)
 }
 
 func AddTouchGlobal(dsp *wlserver.Display, version int, bind func(res Touch) TouchImplementation) {
@@ -3030,7 +3012,6 @@ func (Output) Interface() *wlproto.Interface { return OutputInterface }
 
 type OutputImplementation interface {
 	Release(obj Output)
-	OnDestroy(wlserver.Object)
 }
 
 func AddOutputGlobal(dsp *wlserver.Display, version int, bind func(res Output) OutputImplementation) {
@@ -3229,7 +3210,6 @@ type RegionImplementation interface {
 	Destroy(obj Region)
 	Add(obj Region, x int32, y int32, width int32, height int32)
 	Subtract(obj Region, x int32, y int32, width int32, height int32)
-	OnDestroy(wlserver.Object)
 }
 
 func AddRegionGlobal(dsp *wlserver.Display, version int, bind func(res Region) RegionImplementation) {
@@ -3296,7 +3276,6 @@ func (Subcompositor) Interface() *wlproto.Interface { return SubcompositorInterf
 type SubcompositorImplementation interface {
 	Destroy(obj Subcompositor)
 	GetSubsurface(obj Subcompositor, id Subsurface, surface Surface, parent Surface) SubsurfaceImplementation
-	OnDestroy(wlserver.Object)
 }
 
 func AddSubcompositorGlobal(dsp *wlserver.Display, version int, bind func(res Subcompositor) SubcompositorImplementation) {
@@ -3428,7 +3407,6 @@ type SubsurfaceImplementation interface {
 	PlaceBelow(obj Subsurface, sibling Surface)
 	SetSync(obj Subsurface)
 	SetDesync(obj Subsurface)
-	OnDestroy(wlserver.Object)
 }
 
 func AddSubsurfaceGlobal(dsp *wlserver.Display, version int, bind func(res Subsurface) SubsurfaceImplementation) {

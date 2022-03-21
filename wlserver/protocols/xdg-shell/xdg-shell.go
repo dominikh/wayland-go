@@ -162,7 +162,6 @@ type WmBaseImplementation interface {
 	CreatePositioner(obj WmBase, id Positioner) PositionerImplementation
 	GetXdgSurface(obj WmBase, id Surface, surface wayland.Surface) SurfaceImplementation
 	Pong(obj WmBase, serial uint32)
-	OnDestroy(wlserver.Object)
 }
 
 func AddWmBaseGlobal(dsp *wlserver.Display, version int, bind func(res WmBase) WmBaseImplementation) {
@@ -424,7 +423,6 @@ type PositionerImplementation interface {
 	SetReactive(obj Positioner)
 	SetParentSize(obj Positioner, parentWidth int32, parentHeight int32)
 	SetParentConfigure(obj Positioner, serial uint32)
-	OnDestroy(wlserver.Object)
 }
 
 func AddPositionerGlobal(dsp *wlserver.Display, version int, bind func(res Positioner) PositionerImplementation) {
@@ -559,7 +557,6 @@ type SurfaceImplementation interface {
 	GetPopup(obj Surface, id Popup, parent Surface, positioner Positioner) PopupImplementation
 	SetWindowGeometry(obj Surface, x int32, y int32, width int32, height int32)
 	AckConfigure(obj Surface, serial uint32)
-	OnDestroy(wlserver.Object)
 }
 
 func AddSurfaceGlobal(dsp *wlserver.Display, version int, bind func(res Surface) SurfaceImplementation) {
@@ -846,7 +843,6 @@ type ToplevelImplementation interface {
 	SetFullscreen(obj Toplevel, output wayland.Output)
 	UnsetFullscreen(obj Toplevel)
 	SetMinimized(obj Toplevel)
-	OnDestroy(wlserver.Object)
 }
 
 func AddToplevelGlobal(dsp *wlserver.Display, version int, bind func(res Toplevel) ToplevelImplementation) {
@@ -1005,7 +1001,6 @@ type PopupImplementation interface {
 	Destroy(obj Popup)
 	Grab(obj Popup, seat wayland.Seat, serial uint32)
 	Reposition(obj Popup, positioner Positioner, token uint32)
-	OnDestroy(wlserver.Object)
 }
 
 func AddPopupGlobal(dsp *wlserver.Display, version int, bind func(res Popup) PopupImplementation) {

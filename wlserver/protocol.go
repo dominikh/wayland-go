@@ -2,6 +2,7 @@ package wlserver
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"math"
 	"net"
@@ -282,6 +283,7 @@ func (dsp *Display) ProcessMessage(msg Message) {
 			}
 		}
 
+		// XXX guard against opcodes that don't exist in our version of the protocol
 		meth := obj.Interface().Requests[opcode].Method
 		results := meth.Call(allArgs)
 
@@ -292,7 +294,17 @@ func (dsp *Display) ProcessMessage(msg Message) {
 				n++
 			}
 		}
+
+		if obj.Interface().Requests[opcode].Type == "destructor" {
+			delete(c.objects, obj.ID())
+			delete(c.implementations, obj.ID())
+			c.sendEvent(1, evDisplayDeleteID, obj.ID())
+		}
 	}
+}
+
+func objectString(obj Object) string {
+	return fmt.Sprintf("%s@%d", obj.Interface().Name, obj.ID())
 }
 
 func (dsp *Display) Run() {
@@ -308,14 +320,15 @@ func (dsp *Display) Run() {
 }
 
 type Client struct {
-	dsp     *Display
-	id      uint64
-	rw      *net.UnixConn
-	objects map[wlshared.ObjectID]Object
+	dsp *Display
+	id  uint64
+	rw  *net.UnixConn
+
+	// TODO merge objects and implementations maps
+	objects         map[wlshared.ObjectID]Object
+	implementations map[wlshared.ObjectID]ResourceImplementation
 
 	err atomic.Value
-
-	implementations map[wlshared.ObjectID]ResourceImplementation
 
 	// we track instances of wl_registry separately of other
 	// resources, because we can't import the generated wayland
@@ -402,9 +415,7 @@ type Resource struct {
 	version uint32
 }
 
-type ResourceImplementation interface {
-	OnDestroy(Object)
-}
+type ResourceImplementation interface{}
 
 func (p Resource) SetImplementation(impl ResourceImplementation) {
 	p.conn.implementations[p.id] = impl

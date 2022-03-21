@@ -459,7 +459,6 @@ func (b *Builder) printSpecs(out io.Writer) {
 					}
 					fmt.Fprintf(b, ") (%s)\n", strings.Join(rets, ","))
 				}
-				fmt.Fprintln(b, "OnDestroy(wlserver.Object)")
 				fmt.Fprint(b, "}\n\n")
 
 				fmt.Fprintf(b, "func Add%sGlobal(dsp *wlserver.Display, version int, bind func(res %s) %s) {\n",
