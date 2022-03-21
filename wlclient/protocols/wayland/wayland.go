@@ -2030,7 +2030,7 @@ var SurfaceInterface = &wlproto.Interface{
 			Type:  "",
 			Since: 2,
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(int32(0))},
+				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(OutputTransform(0))},
 			},
 		},
 		{
@@ -2373,7 +2373,7 @@ func (obj *Surface) Commit() {
 // If transform is not one of the values from the
 // wl_output.transform enum the invalid_transform protocol error
 // is raised.
-func (obj *Surface) SetBufferTransform(transform int32) {
+func (obj *Surface) SetBufferTransform(transform OutputTransform) {
 	obj.Conn().SendRequest(obj, 7, transform)
 }
 
@@ -3164,10 +3164,10 @@ var OutputInterface = &wlproto.Interface{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
-				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(int32(0))},
+				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(OutputSubpixel(0))},
 				{Type: wlproto.ArgTypeString},
 				{Type: wlproto.ArgTypeString},
-				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(int32(0))},
+				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(OutputTransform(0))},
 			},
 		},
 		{
@@ -3226,7 +3226,7 @@ func (obj *Output) WithQueue(queue *wlclient.EventQueue) *Output {
 }
 
 type OutputEvents struct {
-	Geometry    func(obj *Output, x int32, y int32, physicalWidth int32, physicalHeight int32, subpixel int32, make string, model string, transform int32)
+	Geometry    func(obj *Output, x int32, y int32, physicalWidth int32, physicalHeight int32, subpixel OutputSubpixel, make string, model string, transform OutputTransform)
 	Mode        func(obj *Output, flags OutputMode, width int32, height int32, refresh int32)
 	Done        func(obj *Output)
 	Scale       func(obj *Output, factor int32)

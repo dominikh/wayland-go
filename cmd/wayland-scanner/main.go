@@ -183,20 +183,19 @@ func (b *Builder) wlprotoArg(arg elArg, ctx elInterface) string {
 func (b *Builder) goTypeFromWlType(arg elArg, ctx elInterface) string {
 	typ := arg.Type
 	iface := arg.Interface
+	if arg.Enum != "" {
+		if strings.ContainsRune(arg.Enum, '.') {
+			parts := strings.SplitN(arg.Enum, ".", 2)
+			return b.typeName(parts[0]) + exportedGoIdentifier(parts[1])
+		} else {
+			return b.typeName(ctx.Name) + exportedGoIdentifier(arg.Enum)
+		}
+	}
 	switch typ {
 	case "int":
 		return "int32"
 	case "uint":
-		if arg.Enum != "" {
-			if strings.ContainsRune(arg.Enum, '.') {
-				parts := strings.SplitN(arg.Enum, ".", 2)
-				return b.typeName(parts[0]) + exportedGoIdentifier(parts[1])
-			} else {
-				return b.typeName(ctx.Name) + exportedGoIdentifier(arg.Enum)
-			}
-		} else {
-			return "uint32"
-		}
+		return "uint32"
 	case "fixed":
 		return "wlshared.Fixed"
 	case "string":

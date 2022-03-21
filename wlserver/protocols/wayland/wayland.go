@@ -1861,7 +1861,7 @@ var SurfaceInterface = &wlproto.Interface{
 			Since:  2,
 			Method: reflect.ValueOf(SurfaceImplementation.SetBufferTransform),
 			Args: []wlproto.Arg{
-				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(int32(0))},
+				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(OutputTransform(0))},
 			},
 		},
 		{
@@ -1967,7 +1967,7 @@ type SurfaceImplementation interface {
 	SetOpaqueRegion(obj Surface, region Region)
 	SetInputRegion(obj Surface, region Region)
 	Commit(obj Surface)
-	SetBufferTransform(obj Surface, transform int32)
+	SetBufferTransform(obj Surface, transform OutputTransform)
 	SetBufferScale(obj Surface, scale int32)
 	DamageBuffer(obj Surface, x int32, y int32, width int32, height int32)
 	Offset(obj Surface, x int32, y int32)
@@ -2955,10 +2955,10 @@ var OutputInterface = &wlproto.Interface{
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
 				{Type: wlproto.ArgTypeInt},
-				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(int32(0))},
+				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(OutputSubpixel(0))},
 				{Type: wlproto.ArgTypeString},
 				{Type: wlproto.ArgTypeString},
-				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(int32(0))},
+				{Type: wlproto.ArgTypeInt, Aux: reflect.TypeOf(OutputTransform(0))},
 			},
 		},
 		{
@@ -3034,7 +3034,7 @@ func AddOutputGlobal(dsp *wlserver.Display, version int, bind func(res Output) O
 // outputs, might fake this information. Instead of using x and y, clients
 // should use xdg_output.logical_position. Instead of using make and model,
 // clients should use name and description.
-func (obj Output) Geometry(x int32, y int32, physicalWidth int32, physicalHeight int32, subpixel int32, make string, model string, transform int32) {
+func (obj Output) Geometry(x int32, y int32, physicalWidth int32, physicalHeight int32, subpixel OutputSubpixel, make string, model string, transform OutputTransform) {
 	obj.Conn().SendEvent(obj, 0, x, y, physicalWidth, physicalHeight, subpixel, make, model, transform)
 }
 
