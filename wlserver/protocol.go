@@ -313,9 +313,9 @@ func (dsp *Display) ProcessMessage(msg Message) {
 		results := meth.Call(allArgs)
 
 		n := 0
-		for _, arg := range sig {
+		for i, arg := range sig {
 			if arg.Type == wlproto.ArgTypeNewID {
-				obj.GetResource().SetImplementation(results[n].Interface().(ResourceImplementation))
+				args[i].Interface().(Object).GetResource().SetImplementation(results[n].Interface().(ResourceImplementation))
 				n++
 			}
 		}
