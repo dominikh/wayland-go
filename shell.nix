@@ -10,5 +10,10 @@ pkgs.mkShell {
     wayland-protocols
     wayland-utils
     hello-wayland # simple test client
+
+    # example clients to debug with
+    (weston.overrideAttrs (old: {
+      mesonFlags = old.mesonFlags ++ ["-Ddemo-clients=true" "-Dsimple-clients=all"];
+    }))
   ];
 }
