@@ -82,8 +82,7 @@ func (err *ProtocolError) Error() string {
 }
 
 func (dsp *Display) Error(obj Object, code uint32, message string) {
-	// wl_display::error
-	obj.Conn().sendEvent(1, 0, obj, code, message)
+	obj.Conn().objects[1].(displayResource).Error(obj, code, message)
 	err := error(&ProtocolError{obj, code, message})
 	obj.Conn().err.CompareAndSwap(nil, &err)
 	obj.Conn().rw.Close()
@@ -105,8 +104,8 @@ func (dsp *Display) AddGlobal(iface *wlproto.Interface, version int, bind func(O
 	dsp.globals[name] = global{iface, version, bind}
 
 	for c := range dsp.clients {
-		for reg := range c.registries {
-			c.sendEvent(reg, 0, uint32(name), iface.Name, uint32(version))
+		for _, obj := range c.registries {
+			obj.Global(name, iface.Name, uint32(version))
 		}
 	}
 
@@ -117,8 +116,8 @@ func (dsp *Display) RemoveGlobal(name uint32) {
 	delete(dsp.globals, name)
 
 	for c := range dsp.clients {
-		for reg := range c.registries {
-			c.sendEvent(reg, 1, uint32(name))
+		for _, obj := range c.registries {
+			obj.GlobalRemove(name)
 		}
 	}
 }
@@ -137,8 +136,18 @@ func (dsp *Display) AddClient(conn net.Conn) *Client {
 		rw:              conn.(*net.UnixConn),
 		objects:         map[wlshared.ObjectID]Object{},
 		implementations: map[wlshared.ObjectID]ResourceImplementation{},
-		registries:      map[wlshared.ObjectID]struct{}{},
+		registries:      map[wlshared.ObjectID]registryResource{},
 	}
+
+	client.objects[1] = displayResource{
+		Resource: Resource{
+			id:      1,
+			conn:    client,
+			version: 1,
+		},
+	}
+	client.implementations[1] = displayImplementation(displaySingleton{dsp})
+
 	dsp.clientID++
 	dsp.clients[client] = struct{}{}
 	go func() {
@@ -177,6 +186,53 @@ func (b *buf) string() string {
 	return string(data)
 }
 
+type displaySingleton struct {
+	dsp *Display
+}
+
+func (dsp displaySingleton) GetRegistry(obj displayResource, registry registryResource) registryImplementation {
+	obj.conn.registries[registry.ID()] = registry
+	for name, g := range dsp.dsp.globals {
+		registry.Global(name, g.iface.Name, uint32(g.version))
+	}
+	return dsp
+}
+
+func (dsp displaySingleton) Sync(obj displayResource, cb callbackResource) callbackImplementation {
+	// XXX how… how do we destroy the callback after calling done? answer: by fixing wayland-scanner; the event has a destructor type
+	// XXX "The callback_data passed in the callback is the event serial."
+	cb.Done(0)
+	// wl_callback has no requests, it doesn't matter what we return here, except that it has to be non-nil
+	return dsp
+}
+
+func (dsp displaySingleton) Bind(reg registryResource, name uint32, idName string, idVersion uint32, id wlshared.ObjectID) ResourceImplementation {
+	g, ok := dsp.dsp.globals[name]
+	if !ok {
+		if name > dsp.dsp.globalsID {
+			// XXX the client tried to bind to a global that has never existed and we should kill the client
+		} else {
+			// XXX the global has been removed and the client's bind raced with the removal. we should set up a
+			// tombstone that later gets destroyed by the client.
+		}
+	}
+
+	res := Resource{
+		conn: reg.conn,
+		id:   id,
+	}
+	rv := reflect.New(g.iface.Type).Elem()
+	rv.Field(0).Set(reflect.ValueOf(res))
+	v := rv.Interface().(Object)
+	reg.conn.objects[id] = v
+
+	// XXX verify that idName matches the global's interface
+
+	return g.bind(v)
+	// TODO(dh): we should verify that bind returned the correct implementation, e.g. a global with
+	// wayland.SeatInterface returns an implementation that implements wayland.SeatImplementation
+}
+
 func (dsp *Display) ProcessMessage(msg Message) {
 	c := msg.Client
 
@@ -189,142 +245,83 @@ func (dsp *Display) ProcessMessage(msg Message) {
 	d := buf(msg.Data)
 	opcode := msg.Opcode
 	sender := msg.Sender
-	// special-case requests to the display or the registry, to
-	// avoid a circular dependency between this package and the
-	// generated wayland package.
-	const (
-		idDisplay             = 1
-		reqDisplaySync        = 0
-		reqDisplayGetRegistry = 1
-		reqRegistryBind       = 0
-		evCallbackDone        = 0
-		evDisplayDeleteID     = 1
-	)
-	if sender == idDisplay {
-		// request to the display
-		switch opcode {
-		case reqDisplaySync:
-			id := d.uint32()
-			c.sendEvent(wlshared.ObjectID(id), evCallbackDone, uint32(0))
-			c.sendEvent(idDisplay, evDisplayDeleteID, id)
-		case reqDisplayGetRegistry:
-			// XXX verify the ID isn't already in use
-			id := d.uint32()
+	obj, ok := c.objects[sender]
+	if !ok {
+		// TODO(dh): is it okay for objects to be unknown when we're the server, or should we kill the client?
 
-			c.registries[wlshared.ObjectID(id)] = struct{}{}
-			for name, g := range c.dsp.globals {
-				c.sendEvent(wlshared.ObjectID(id), 0, uint32(name), g.iface.Name, uint32(g.version))
-			}
-		default:
-			// XXX invalid opcode
-		}
-	} else if _, ok := c.registries[sender]; ok {
-		// request to a registry
-		if opcode == reqRegistryBind {
-			name := d.uint32()
-			ifaceName := d.string()
-			version := d.uint32()
-			id := wlshared.ObjectID(d.uint32())
-			_ = ifaceName
+		// unknown object
+		return
+	}
+	off := 0
+	// XXX guard against invalid opcodes
+	sig := obj.Interface().Requests[opcode].Args
+	allArgs := make([]reflect.Value, len(sig)+2)
+	impl := c.implementations[sender]
+	allArgs[0] = reflect.ValueOf(impl)
+	allArgs[1] = reflect.ValueOf(obj)
+	args := allArgs[2:]
+	// XXX guard against provided arguments not matching signature in protocol spec
+	for i, arg := range sig {
+		// XXX guard against not enough arguments being provided
+		newOff, argv := wlshared.ParseArgument(arg, d, off)
+		off = newOff
 
-			g, ok := c.dsp.globals[name]
-			if !ok {
-				if name > c.dsp.globalsID {
-					// XXX the client tried to bind to a global that has never existed and we should kill the client
-				} else {
-					// XXX the global has been removed and the client's bind raced with the removal. we should set up a
-					// tombstone that later gets destroyed by the client.
-				}
-			}
-
-			// XXX guard against in-use id
-			// XXX verify that ifaceName matches the global's interface
-
-			iface := g.iface
-			res := Resource{
-				conn:    c,
-				id:      wlshared.ObjectID(id),
-				version: version,
-			}
-			robj := reflect.New(iface.Type).Elem()
-			robj.Field(0).Set(reflect.ValueOf(res))
-			obj := robj.Interface().(Object)
-			c.objects[id] = obj
-			c.implementations[id] = c.dsp.globals[name].bind(obj)
-			// TODO(dh): we should verify that bind returned the correct implementation, e.g. a global with
-			// wayland.SeatInterface returns an implementation that implements wayland.SeatImplementation
-		} else {
-			// XXX invalid opcode
-		}
-	} else {
-		obj, ok := c.objects[sender]
-		if !ok {
-			// TODO(dh): is it okay for objects to be unknown when we're the server, or should we kill the client?
-
-			// unknown object
-			return
-		}
-		off := 0
-		// XXX guard against invalid opcodes
-		sig := obj.Interface().Requests[opcode].Args
-		allArgs := make([]reflect.Value, len(sig)+2)
-		impl := c.implementations[sender]
-		allArgs[0] = reflect.ValueOf(impl)
-		allArgs[1] = reflect.ValueOf(obj)
-		args := allArgs[2:]
-		for i, arg := range sig {
-			newOff, argv := wlshared.ParseArgument(arg, d, off)
-			off = newOff
-
-			switch arg.Type {
-			case wlproto.ArgTypeObject:
-				// XXX guard against invalid object id
-				args[i] = reflect.ValueOf(c.objects[argv.(wlshared.ObjectID)])
-			case wlproto.ArgTypeFd:
-				fd := c.fds[0]
-				copy(c.fds, c.fds[1:])
-				c.fds = c.fds[:len(c.fds)-1]
-				args[i] = reflect.ValueOf(uintptr(fd))
-			case wlproto.ArgTypeNewID:
-				// XXX verify that the new ID isn't already in use
-				// XXX verify that the new ID is in the client's ID space
-				num := argv.(wlshared.ObjectID)
+		switch arg.Type {
+		case wlproto.ArgTypeObject:
+			// XXX guard against invalid object id
+			args[i] = reflect.ValueOf(c.objects[argv.(wlshared.ObjectID)])
+		case wlproto.ArgTypeFd:
+			fd := c.fds[0]
+			copy(c.fds, c.fds[1:])
+			c.fds = c.fds[:len(c.fds)-1]
+			args[i] = reflect.ValueOf(uintptr(fd))
+		case wlproto.ArgTypeNewID:
+			// XXX verify that the new ID isn't already in use
+			// XXX verify that the new ID is in the client's ID space
+			num := argv.(wlshared.ObjectID)
+			// XXX handle new_id with no specified interface, and thus no Aux
+			if arg.Aux == nil {
+				args[i] = reflect.ValueOf(argv)
+			} else {
+				// XXX set the resource's version. it will be tied to the version of the resource to which the request is being sent
 				res := Resource{
 					conn: c,
 					id:   wlshared.ObjectID(num),
 				}
-				// XXX handle new_id with no specified interface, and thus no Aux
-				if arg.Aux == nil {
-					panic("not implemented")
-				}
-				// XXX set the resource's version. it will be tied to the version of the resource to which the request is being sent
 				rv := reflect.New(arg.Aux).Elem()
 				rv.Field(0).Set(reflect.ValueOf(res))
 				v := rv.Interface().(Object)
 				c.objects[wlshared.ObjectID(num)] = v
 				args[i] = rv
-			default:
-				args[i] = reflect.ValueOf(argv)
 			}
+		default:
+			args[i] = reflect.ValueOf(argv)
 		}
+	}
 
-		// XXX guard against opcodes that don't exist in our version of the protocol
-		meth := obj.Interface().Requests[opcode].Method
-		results := meth.Call(allArgs)
+	// XXX guard against opcodes that don't exist in our version of the protocol
+	meth := obj.Interface().Requests[opcode].Method
+	results := meth.Call(allArgs)
 
-		n := 0
-		for i, arg := range sig {
-			if arg.Type == wlproto.ArgTypeNewID {
-				args[i].Interface().(Object).GetResource().SetImplementation(results[n].Interface().(ResourceImplementation))
-				n++
+	n := 0
+	for i, arg := range sig {
+		if arg.Type == wlproto.ArgTypeNewID {
+			var obj Object
+			if arg.Aux == nil {
+				id := args[i].Interface().(wlshared.ObjectID)
+				obj = c.objects[id]
+			} else {
+				obj = args[i].Interface().(Object)
 			}
+			obj.GetResource().SetImplementation(results[n].Interface().(ResourceImplementation))
+			n++
 		}
+	}
 
-		if obj.Interface().Requests[opcode].Type == "destructor" {
-			delete(c.objects, obj.ID())
-			delete(c.implementations, obj.ID())
-			c.sendEvent(1, evDisplayDeleteID, obj.ID())
-		}
+	if obj.Interface().Requests[opcode].Type == "destructor" {
+		delete(c.objects, obj.ID())
+		delete(c.implementations, obj.ID())
+		c.objects[1].(displayResource).DeleteID(uint32(obj.ID()))
 	}
 }
 
@@ -350,15 +347,13 @@ type Client struct {
 	rw  *net.UnixConn
 
 	// TODO merge objects and implementations maps
-	objects         map[wlshared.ObjectID]Object
+	objects map[wlshared.ObjectID]Object
+	// registries tracks the client's registry resources for faster access. these objects are also present in the
+	// objects map.
+	registries      map[wlshared.ObjectID]registryResource
 	implementations map[wlshared.ObjectID]ResourceImplementation
 
 	err atomic.Value
-
-	// we track instances of wl_registry separately of other
-	// resources, because we can't import the generated wayland
-	// package and cannot use the generic dispatch code
-	registries map[wlshared.ObjectID]struct{}
 
 	fds []uintptr
 
@@ -459,16 +454,12 @@ type Object interface {
 }
 
 func (c *Client) SendEvent(source wlshared.Object, event int, args ...interface{}) {
-	c.sendEvent(source.ID(), event, args...)
-}
-
-func (c *Client) sendEvent(source wlshared.ObjectID, event int, args ...interface{}) {
 	c.sendMu.Lock()
 	defer c.sendMu.Unlock()
 
 	buf := c.sendBuf[:0]
 	var oob []byte
-	buf, oob = wlshared.EncodeRequest(buf, source, event, args)
+	buf, oob = wlshared.EncodeRequest(buf, source.ID(), event, args)
 	_, _, err := c.rw.WriteMsgUnix(buf, oob, nil)
 	if err != nil {
 		// Set c.err if it hasn't been set yet

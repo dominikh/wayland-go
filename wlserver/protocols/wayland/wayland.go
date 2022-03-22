@@ -345,7 +345,7 @@ type Registry struct{ wlserver.Resource }
 func (Registry) Interface() *wlproto.Interface { return RegistryInterface }
 
 type RegistryImplementation interface {
-	Bind(obj Registry, name uint32, id wlserver.Object) wlserver.ResourceImplementation
+	Bind(obj Registry, name uint32, idName string, idVersion uint32, id wlshared.ObjectID) wlserver.ResourceImplementation
 }
 
 func AddRegistryGlobal(dsp *wlserver.Display, version int, bind func(res Registry) RegistryImplementation) {

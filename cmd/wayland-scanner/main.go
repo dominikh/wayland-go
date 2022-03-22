@@ -447,7 +447,12 @@ func (b *Builder) printSpecs(out io.Writer) {
 
 					var rets []string
 					for _, arg := range req.Args {
-						fmt.Fprintf(b, "%s %s,", goIdentifier(arg.Name), b.goTypeFromWlType(arg, iface))
+						if arg.Type == "new_id" && arg.Interface == "" {
+							name := goIdentifier(arg.Name)
+							fmt.Fprintf(b, "%sName string, %sVersion uint32, %s wlshared.ObjectID,", name, name, name)
+						} else {
+							fmt.Fprintf(b, "%s %s,", goIdentifier(arg.Name), b.goTypeFromWlType(arg, iface))
+						}
 						if arg.Type == "new_id" {
 							if arg.Interface == "" {
 								rets = append(rets, "wlserver.ResourceImplementation")
